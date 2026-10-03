@@ -1,0 +1,14 @@
+flowchart TD
+  api["FastAPI accepts job<br/>Return job ID immediately"]
+  queue["Redis broker → Celery worker<br/>Queue heavy work outside HTTP request handlers"]
+  parse["Parse and transcribe selected sources<br/>Docling + FFmpeg + faster-whisper / Whisper small"]
+  cover["Process every source section<br/>Preserve page, timestamp, and source references"]
+  generate["Generate notes and selected extras<br/>Qwen3-VL-8B-Instruct through Ollama"]
+  validate["Validate and render visuals<br/>Check structure, citations, and source-supported chart data"]
+  persist["Save artifacts and notify UI<br/>Markdown + visual assets in object storage; status in MongoDB"]
+  api --> queue
+  queue --> parse
+  parse --> cover
+  cover --> generate
+  generate --> validate
+  validate --> persist

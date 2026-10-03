@@ -1,0 +1,15 @@
+flowchart TD
+  student["Student<br/>Starts a new Study Pill"]
+  select["Select resources<br/>Upload files, add YouTube, or reuse owned objects"]
+  validate["FastAPI validates sources<br/>Check ownership, file type, size, and URL"]
+  store["Store originals and references<br/>Object storage holds files; MongoDB holds source metadata"]
+  snapshot["Save isolated source selection<br/>Bind authorized source IDs to user ID and Pill ID"]
+  outputs["Choose optional materials<br/>Notes always included; extras independently selected"]
+  job["Request generation<br/>Save source-version snapshot and create job"]
+  student --> select
+  select --> validate
+  validate --> store
+  store --> snapshot
+  snapshot --> outputs
+  outputs --> job
+

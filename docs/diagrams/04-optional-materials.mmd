@@ -1,0 +1,15 @@
+flowchart TD
+  choose["Student chooses extras<br/>Any combination of flashcards, MCQs, true/false, roadmap"]
+  generate["Generate with notes<br/>Worker uses the same complete Pill source snapshot"]
+  validate["Validate optional outputs<br/>Answer, explanation, and source evidence for each question"]
+  open["Open a selected material<br/>Keep notes and navigation easy to return to"]
+  interact["Reveal, answer, or follow steps<br/>Flashcard reveal; question answer; roadmap section link"]
+  feedback["Show explanation and evidence<br/>Feedback includes the correct answer and source reference"]
+  return["Return to the notes<br/>Preserve position and session context"]
+  choose --> generate
+  generate --> validate
+  validate --> open
+  open --> interact
+  interact --> feedback
+  feedback --> return
+

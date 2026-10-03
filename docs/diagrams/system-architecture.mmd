@@ -1,0 +1,27 @@
+flowchart TB
+  student[Student browser]
+  frontend[Next.js frontend<br/>Pills, Markdown reader, previews, optional materials]
+  api[FastAPI<br/>Authorization, source selection, job API, scoped chat, exports]
+  redis[(Redis<br/>Celery task broker)]
+  workers[Celery workers<br/>Ingestion, complete-source synthesis, validation, rendering, export]
+  mongo[(MongoDB + Vector Search<br/>Users, Pills, source references, jobs, chunks, embeddings)]
+  objects[(Object storage<br/>Originals, parsed JSON, Markdown, PNG assets, export ZIP)]
+  docling[Docling<br/>Documents, images, layout, OCR]
+  whisper[FFmpeg + faster-whisper<br/>Whisper small open weights<br/>Timestamped audio transcription]
+  llm[Ollama model server<br/>Qwen3-VL-8B-Instruct open weights]
+  embeddings[Embedding runtime<br/>Open-weight embedding model<br/>Exact model to be selected]
+  student --> frontend
+  frontend <-->|HTTPS requests, job polling, authorized artifacts| api
+  api -->|Enqueue task with job ID and source snapshot| redis
+  redis -->|Deliver task| workers
+  workers -->|Acknowledge / bounded retry| redis
+  api <-->|Authorize, save metadata, read status, scoped retrieval| mongo
+  workers <-->|Persist stages, source chunks, vectors, results| mongo
+  api <-->|Uploads and authorized artifact access| objects
+  workers <-->|Read originals; write parsed data and generated artifacts| objects
+  workers --> docling
+  workers --> whisper
+  workers <-->|Section synthesis and selected extras| llm
+  workers -->|Embed source chunks| embeddings
+  api -.->|Grounded chat generation| llm
+  api -.->|Embed chat query| embeddings

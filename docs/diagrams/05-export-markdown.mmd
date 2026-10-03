@@ -1,0 +1,15 @@
+flowchart TD
+  request["Student requests export<br/>Choose the current Pill's generated material"]
+  auth["FastAPI authorizes export<br/>Verify ownership of Pill and referenced artifacts"]
+  collect["Collect the selected artifacts<br/>Markdown notes, optional extras, and rendered PNG visuals"]
+  rewrite["Make references portable<br/>Relative asset paths, text citations, page numbers, timestamps"]
+  bundle["Build ZIP archive<br/>notes.md, selected extra files, and assets/"]
+  download["Download study pack<br/>Serve authorized short-lived download"]
+  read["Open in a Markdown reader<br/>Images load from the bundled assets directory"]
+  request --> auth
+  auth --> collect
+  collect --> rewrite
+  rewrite --> bundle
+  bundle --> download
+  download --> read
+

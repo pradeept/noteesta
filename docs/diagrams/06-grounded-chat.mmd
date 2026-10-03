@@ -1,0 +1,15 @@
+flowchart TD
+  ask["Student asks a question<br/>Question belongs to the current Pill"]
+  auth["Authorize and resolve selected sources<br/>Server derives user ID, Pill ID, and allowed source IDs"]
+  embed["Embed the question<br/>Use the same embedding model as ingestion"]
+  retrieve["MongoDB Vector Search<br/>Apply user + Pill/source filters inside retrieval"]
+  answer["Qwen generates an answer<br/>Use retrieved source passages as evidence"]
+  validate["Return cited response<br/>If evidence is insufficient, say so rather than inventing"]
+  cite["Student follows a citation<br/>Open the original page or timestamp"]
+  ask --> auth
+  auth --> embed
+  embed --> retrieve
+  retrieve --> answer
+  answer --> validate
+  validate --> cite
+

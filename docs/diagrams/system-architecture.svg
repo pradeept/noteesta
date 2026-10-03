@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 1080" role="img" aria-labelledby="title desc">
+<title id="title">Noteesta system architecture</title><desc id="desc">Next.js calls FastAPI. FastAPI authorizes requests, stores metadata in MongoDB and files in object storage, and queues jobs through Redis. Celery workers consume jobs, use Docling, Whisper small, an open-weight embedding model, and Qwen3-VL through Ollama. Workers persist status and artifacts. The frontend polls FastAPI for progress. Chat uses scoped MongoDB retrieval and the same model services.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0L8 4L0 8" fill="#567160"/></marker></defs>
+<rect width="1380" height="1080" fill="#fff"/>
+<g font-family="Arial,sans-serif" fill="#24392b">
+<text x="40" y="44" font-size="26" font-weight="600">Noteesta / system architecture</text><text x="40" y="72" font-size="14" fill="#536459">Heavy processing runs in Celery. FastAPI owns authorization, job submission, and access to results.</text>
+<g stroke="#567160" stroke-width="2" fill="none" marker-end="url(#arrow)">
+<path d="M355 168H515" marker-start="url(#arrow)"/>
+<path d="M850 162H1030" marker-start="url(#arrow)"/>
+<path d="M685 237V306"/>
+<path d="M685 389V468"/>
+<path d="M850 512H938V202H1030" marker-start="url(#arrow)"/>
+<path d="M850 553H976V460H1030" marker-start="url(#arrow)"/>
+<path d="M815 237V274H1003V421H1030" marker-start="url(#arrow)"/>
+<path d="M615 594V660H185V745"/>
+<path d="M655 594V684H505V745"/>
+<path d="M720 594V709H830V745"/>
+<path d="M775 594V684H1170V745"/>
+</g>
+<g font-size="12" fill="#536459"><text x="373" y="141">HTTPS + polling</text><text x="872" y="144">Metadata / jobs</text><text x="701" y="277">Enqueue job ID</text><text x="701" y="434">Consume / acknowledge</text><text x="862" y="532">Job status</text><text x="858" y="579">Read / write artifacts</text><text x="844" y="266">Upload / serve files</text><text x="404" y="647">Worker processing dependencies</text></g>
+<rect x="40" y="113" width="315" height="124" rx="10" fill="#e9eef8" stroke="#b7c7de"/><text x="60" y="145" font-size="20" font-weight="600">Next.js frontend</text><text x="60" y="176" font-size="14">Pills · Markdown · optional extras</text><text x="60" y="199" font-size="14">Previews · sources · export</text><text x="60" y="220" font-size="12" fill="#536459">Student browser</text>
+<rect x="520" y="113" width="330" height="124" rx="10" fill="#e5efe7" stroke="#a9c3b0"/><text x="541" y="145" font-size="20" font-weight="600">FastAPI backend</text><text x="541" y="176" font-size="14">Authorization · source snapshots</text><text x="541" y="199" font-size="14">Job API · grounded chat · exports</text><text x="541" y="220" font-size="12" fill="#536459">Returns job ID without waiting for generation</text>
+<rect x="1035" y="113" width="305" height="124" rx="10" fill="#f2f5f2" stroke="#b7c9bb"/><text x="1054" y="145" font-size="19" font-weight="600">MongoDB + Vector Search</text><text x="1054" y="176" font-size="14">Pills · users · source metadata</text><text x="1054" y="199" font-size="14">Job status · chunks · embeddings</text><text x="1054" y="220" font-size="12" fill="#536459">Filter by authorized user + Pill sources</text>
+<rect x="520" y="311" width="330" height="78" rx="10" fill="#f3f5f3" stroke="#b7c9bb"/><text x="541" y="342" font-size="19" font-weight="600">Redis</text><text x="541" y="368" font-size="14">Celery task broker</text>
+<rect x="520" y="473" width="330" height="121" rx="10" fill="#e5efe7" stroke="#a9c3b0"/><text x="541" y="505" font-size="20" font-weight="600">Celery workers</text><text x="541" y="535" font-size="14">Parse → cover every section → synthesize</text><text x="541" y="558" font-size="14">Validate → render → persist artifacts</text><text x="541" y="579" font-size="12" fill="#536459">Bounded retries and idempotent stages</text>
+<rect x="1035" y="389" width="305" height="124" rx="10" fill="#f2f5f2" stroke="#b7c9bb"/><text x="1054" y="421" font-size="20" font-weight="600">Object storage</text><text x="1054" y="452" font-size="14">Original recordings and documents</text><text x="1054" y="475" font-size="14">Parsed JSON · Markdown · PNG · ZIP</text><text x="1054" y="496" font-size="12" fill="#536459">Private objects; authorized downloads</text>
+<rect x="40" y="750" width="290" height="125" rx="10" fill="#edf1f8" stroke="#b7c7de"/><text x="59" y="782" font-size="20" font-weight="600">Docling</text><text x="59" y="813" font-size="14">PDF / DOCX / images / layout</text><text x="59" y="836" font-size="14">OCR and document structure</text><text x="59" y="858" font-size="12" fill="#536459">Keep page and source provenance</text>
+<rect x="355" y="750" width="300" height="125" rx="10" fill="#edf1f8" stroke="#b7c7de"/><text x="374" y="782" font-size="19" font-weight="600">FFmpeg + faster-whisper</text><text x="374" y="813" font-size="14">Whisper small · open weights</text><text x="374" y="836" font-size="14">Timestamped audio transcription</text><text x="374" y="858" font-size="12" fill="#536459">Video audio extraction + frame sampling</text>
+<rect x="680" y="750" width="300" height="125" rx="10" fill="#edf1f8" stroke="#b7c7de"/><text x="699" y="782" font-size="20" font-weight="600">Ollama model server</text><text x="699" y="813" font-size="14">Qwen3-VL-8B-Instruct</text><text x="699" y="836" font-size="14">Open weights · text + vision</text><text x="699" y="858" font-size="12" fill="#536459">Notes, extras, selected-frame interpretation</text>
+<rect x="1005" y="750" width="335" height="125" rx="10" fill="#edf1f8" stroke="#b7c7de"/><text x="1024" y="782" font-size="20" font-weight="600">Embedding runtime</text><text x="1024" y="813" font-size="14">Open-weight embedding model</text><text x="1024" y="836" font-size="14">Same model for chunks and questions</text><text x="1024" y="858" font-size="12" fill="#536459">Exact model remains to be selected</text>
+<rect x="40" y="923" width="1300" height="110" rx="10" fill="#f5f7f5" stroke="#d4ddd5"/><text x="60" y="954" font-size="16" font-weight="600">Request and data boundaries</text><text x="60" y="979" font-size="14">Chat: FastAPI → embedding runtime → scoped MongoDB retrieval → Ollama → cited answer. No Celery job required for short chat requests.</text><text x="60" y="1004" font-size="14">Progress: workers write job state to MongoDB; the frontend polls FastAPI. Browsers never connect directly to Redis or model services.</text>
+</g></svg>

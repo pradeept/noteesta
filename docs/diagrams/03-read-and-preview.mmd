@@ -1,0 +1,15 @@
+flowchart TD
+  open["Student opens a Study Pill<br/>FastAPI authorizes Pill access"]
+  fetch["Load saved notes and assets<br/>Show sections, citations, and chosen study materials"]
+  render["Render the Markdown document<br/>Semantic headings, tables, formulas, and image descriptions"]
+  preview["Activate a chart or image<br/>Open accessible preview; support keyboard and zoom"]
+  close["Close using Escape or close button<br/>Restore focus and reading position"]
+  cite["Activate a source citation<br/>Open authorized source at its page or timestamp"]
+  return["Return to the document<br/>Resume at the original passage"]
+  open --> fetch
+  fetch --> render
+  render --> preview
+  preview --> close
+  close --> cite
+  cite --> return
+
