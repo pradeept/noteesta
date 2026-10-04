@@ -18,6 +18,9 @@ def get_assert(output: str, context: dict[str, Any]) -> dict[str, Any]:
             evidence = section.get("evidence", [])
             valid_sections = valid_sections and (
                 isinstance(section.get("id"), str)
+                and bool(section["id"].strip())
+                and isinstance(section.get("title"), str)
+                and bool(section["title"].strip())
                 and isinstance(section.get("markdown"), str)
                 and len(section["markdown"]) > 20
                 and bool(evidence)

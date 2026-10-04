@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -180,6 +181,10 @@ async def _extract_youtube(source: Source) -> ExtractedSource:
             "outtmpl": template,
             "quiet": True,
         }
+        # yt-dlp only enables Deno by default. Use Node when it is available so
+        # YouTube's current JavaScript challenge can be solved in local/dev runs.
+        if shutil.which("node"):
+            options["js_runtimes"] = {"node": {}}
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(source.url, download=True)
         files = list(Path(directory).glob("*.vtt"))

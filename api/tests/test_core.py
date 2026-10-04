@@ -4,6 +4,7 @@ from noteesta_api.repository import _deserialize, _serialize
 from noteesta_api.routes.pills import _is_youtube_url
 from noteesta_api.schemas import Citation, Source, StudyPill, VisualNode, VisualSpec
 from noteesta_api.services.extraction import ExtractedSegment, chunk_segments
+from noteesta_api.services.pipeline import _note_sections
 from noteesta_api.services.rendering import render_visual
 
 
@@ -21,6 +22,7 @@ def test_settings_accept_comma_separated_cors_origins() -> None:
 
 def test_youtube_url_validation_rejects_unrelated_hosts() -> None:
     assert _is_youtube_url("https://www.youtube.com/watch?v=lesson")
+    assert _is_youtube_url("https://youtube.com/shorts/83iyz_5rN8c")
     assert _is_youtube_url("https://youtu.be/lesson")
     assert not _is_youtube_url("https://example.com/watch?v=lesson")
     assert not _is_youtube_url("file:///private/lesson.mp4")
@@ -100,3 +102,27 @@ def test_prompt_renderer_uses_shared_prompt_file() -> None:
     assert "One source" in output
     assert "{{question}}" not in output
 
+
+def test_note_sections_infer_missing_title_and_id_from_markdown() -> None:
+    source = Source(id="source-1", name="lesson.png", kind="image", detail="1 page")
+
+    sections = _note_sections(
+        [
+            {
+                "markdown": "## Light reactions\n\nThey produce ATP and NADPH.",
+                "evidence": [
+                    {
+                        "sourceId": source.id,
+                        "locator": "page 1",
+                        "excerpt": "ATP and NADPH are produced.",
+                    }
+                ],
+            }
+        ],
+        {source.id: source},
+        "pill-1",
+    )
+
+    assert sections[0].id == "light-reactions"
+    assert sections[0].title == "Light reactions"
+    assert sections[0].citations[0].source_name == "lesson.png"

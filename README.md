@@ -127,3 +127,19 @@ For Atlas, create the `noteesta` database and `chunks` collection, then add a Ve
 ```
 
 Wait for the index status to become **Ready** before processing a Study Pill. The dimension count is for the configured default `nomic-embed-text` model; change it if you configure another embedding model with a different output size.
+
+## UI/UX improvements
+
+- [ ] Let users edit a Study Pill's title and add a description. Start with the italic, borderless “Add a description” placeholder.
+- [ ] Add tags and a way to organize multiple Study Pills into user-created groups. “Collections” may be clearer than “racks”; confirm the name during implementation. Let users select one or more pills and move them into a group. Update the “My Study Pills” navigation to show groups and pills with distinct icons.
+- [ ] Redesign the roadmap as a polished, on-theme milestone path with green flags, using the provided roadmap image as inspiration.
+- [ ] Fix Focus mode so it improves the reading layout without introducing alignment problems.
+- [ ] Rename “Ask this Pill” to “Got a doubt? 🤔” and choose an icon that fits the existing visual style.
+- [ ] Improve the reading preferences dialog with useful appearance options, including background choices, and replace the current ad hoc controls with an appropriate accessible UI component library where it helps dialogs and other controls.
+- [ ] If a component library is added, provide three or four custom color themes from the navbar and apply the selected theme consistently across the dashboard, including buttons and text.
+- [ ] Add a rotating fact card, preferring science, then basic mathematics, with computer topics rare and history less frequent. Fetch fact summaries and their article links from Wikipedia's REST API. Rotate every six seconds with a smooth flip animation; pause while hovered, highlight the fact on hover, and open its Wikipedia page in a new tab when clicked.
+- [ ] Show each attached file or YouTube source while a Study Pill is processing, between its title and progress bar.
+- [ ] Show the total processing time after a Study Pill finishes, in its footer.
+- [ ] Add a file library where users can find, download, and delete their files. Before deletion, explain that removing a file can break citations in the Study Pills that use it, and identify the affected pills. Also list youtube links they have pasted and map that to the pill.
+- [ ] Make sure you reset the "Make it yours" and other settings to default in New study pill modal. Currently the previous inputs were persisted when I opened the modal for new pill. Default: Select only Flashcards, Detail level -> balanced and learner level intermediate.
+- [ ] Show 

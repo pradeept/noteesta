@@ -14,6 +14,7 @@ Return JSON with this shape:
 }
 
 Rules:
+- Every section must include a non-empty id, title, markdown, and evidence array. Never omit any of these fields.
 - Cover every supplied section analysis. Retrieval ranking is not a coverage mechanism.
 - Every section needs at least one evidence item copied from SECTION_ANALYSES.
 - Use only claims present in SECTION_ANALYSES. Do not add background facts from memory.

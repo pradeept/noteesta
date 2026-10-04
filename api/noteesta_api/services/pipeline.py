@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_core.documents import Document
@@ -171,15 +172,7 @@ async def process_pill(pill_id: str) -> None:
             learner_level=str(pill.settings.get("learner_level", "intermediate")),
             section_analyses=json.dumps(analyses, ensure_ascii=False),
         )
-        sections = [
-            NoteSection(
-                id=item["id"],
-                title=item["title"],
-                markdown=item["markdown"],
-                citations=_citations(item.get("evidence", []), source_lookup),
-            )
-            for item in notes_raw.get("sections", [])
-        ]
+        sections = _note_sections(notes_raw.get("sections", []), source_lookup, pill_id)
         if not sections:
             raise RuntimeError("The model returned no note sections")
 
@@ -271,6 +264,84 @@ def _citations(evidence: list[dict[str, Any]], sources: dict[str, Source]) -> li
             )
         )
     return citations
+
+
+def _note_sections(
+    raw_sections: Any, sources: dict[str, Source], pill_id: str
+) -> list[NoteSection]:
+    """Validate synthesized sections and recover a useful title if the model omitted it."""
+    if not isinstance(raw_sections, list):
+        raise ValueError("The model returned an invalid note sections list")
+
+    sections: list[NoteSection] = []
+    used_ids: set[str] = set()
+    for index, item in enumerate(raw_sections, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"The model returned an invalid note section at position {index}")
+
+        markdown = item.get("markdown")
+        if not isinstance(markdown, str) or not markdown.strip():
+            raise ValueError(f"Note section {index} is missing Markdown content")
+
+        title = item.get("title")
+        if not isinstance(title, str) or not title.strip():
+            title = _infer_section_title(markdown) or f"Study notes {index}"
+            logger.warning(
+                "Pill %s: notes synthesis omitted the title for section %d; inferred %r",
+                pill_id,
+                index,
+                title,
+            )
+
+        section_id = item.get("id")
+        if not isinstance(section_id, str) or not section_id.strip():
+            section_id = _section_slug(title) or f"section-{index}"
+            logger.warning(
+                "Pill %s: notes synthesis omitted the ID for section %d; inferred %r",
+                pill_id,
+                index,
+                section_id,
+            )
+        base_id = section_id
+        suffix = 2
+        while section_id in used_ids:
+            section_id = f"{base_id}-{suffix}"
+            suffix += 1
+        used_ids.add(section_id)
+
+        evidence = item.get("evidence", [])
+        if not isinstance(evidence, list):
+            raise ValueError(f"Note section {index} has invalid evidence")
+        citations = _citations(evidence, sources)
+        if not citations:
+            raise ValueError(f"Note section {index} has no evidence linked to the selected sources")
+
+        sections.append(
+            NoteSection(
+                id=section_id,
+                title=title.strip(),
+                markdown=markdown.strip(),
+                citations=citations,
+            )
+        )
+    return sections
+
+
+def _infer_section_title(markdown: str) -> str:
+    for line in markdown.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        heading = re.match(r"^#{1,6}\s+(.+?)\s*#*$", line)
+        title = heading.group(1) if heading else line
+        title = re.sub(r"[`*_~]", "", title).strip()
+        if title:
+            return title[:100]
+    return ""
+
+
+def _section_slug(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
 def _flashcards(rows: list[dict[str, Any]], sources: dict[str, Source]) -> list[Flashcard]:
