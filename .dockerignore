@@ -1,0 +1,7 @@
+.git
+.next
+node_modules
+api/.venv
+.promptfoo
+docs
+*.log
