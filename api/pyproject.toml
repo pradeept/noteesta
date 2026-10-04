@@ -21,6 +21,7 @@ dependencies = [
   "yt-dlp>=2026.9.0",
   "torch>=2.14.1",
   "torchvision>=0.29.1",
+  "av>=11,<19", # faster-whisper still passes metadata_errors, removed in PyAV 19
 ]
 
 [project.optional-dependencies]

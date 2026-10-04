@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 description: Noteesta visual specifications use only sourced relationships and values
 prompts:
-  - file://../../prompts/visual-spec.txt
+  - file://prompts/visual-spec.txt
 providers:
   - id: file://provider.py
     config:

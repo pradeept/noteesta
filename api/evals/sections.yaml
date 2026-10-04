@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 description: Noteesta section extraction preserves source evidence
 prompts:
-  - file://../../prompts/section-extraction.txt
+  - file://prompts/section-extraction.txt
 providers:
   - id: file://provider.py
     config:

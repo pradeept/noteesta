@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 description: Noteesta grounded chat answers from retrieved evidence and abstains otherwise
 prompts:
-  - file://../../prompts/grounded-chat.txt
+  - file://prompts/grounded-chat.txt
 providers:
   - id: file://provider.py
     config:
