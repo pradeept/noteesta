@@ -12,4 +12,4 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     result_expires=3600,
 )
-celery_app.autodiscover_tasks(["noteesta_api"])
+celery_app.autodiscover_tasks(["workers"])

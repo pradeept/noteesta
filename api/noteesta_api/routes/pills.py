@@ -18,7 +18,7 @@ from noteesta_api.schemas import AskRequest, ChatAnswer, MaterialKey, Source, St
 from noteesta_api.services.chat import answer_question
 from noteesta_api.services.exporting import build_export
 from noteesta_api.storage import get_storage
-from noteesta_api.tasks import process_pill_task
+from workers.tasks import process_pill_task
 
 router = APIRouter(prefix="/pills", tags=["study-pills"])
 

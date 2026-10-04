@@ -5,10 +5,10 @@ import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from pymongo.errors import PyMongoError
 
-from noteesta_api.celery_app import celery_app
 from noteesta_api.database import get_database
 from noteesta_api.repository import PillRepository
 from noteesta_api.services.pipeline import process_pill
+from workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 RETRYABLE_ERRORS = (

@@ -44,7 +44,7 @@ torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
 
 [tool.hatch.build.targets.wheel]
-packages = ["noteesta_api"]
+packages = ["noteesta_api", "workers"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
