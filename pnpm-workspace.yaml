@@ -1,0 +1,10 @@
+packages:
+  - .
+
+allowBuilds:
+  "@playwright/browser-chromium": false
+  "@swc/core": true
+  esbuild: true
+  onnxruntime-node: false
+  protobufjs: true
+  unrs-resolver: true
