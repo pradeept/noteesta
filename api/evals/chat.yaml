@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Noteesta grounded chat answers from retrieved evidence and abstains otherwise
+prompts:
+  - file://../../prompts/grounded-chat.txt
+providers:
+  - id: file://provider.py
+    config:
+      model: "{{ env.OLLAMA_MODEL }}"
+      base_url: "{{ env.OLLAMA_BASE_URL }}"
+      num_ctx: 32768
+      num_predict: 1400
+tests:
+  - description: Answer when the retrieved context contains evidence
+    vars:
+      question: Where do the light reactions happen?
+      expect_grounded: "true"
+      retrieved_context: >-
+        [{"sourceId":"lecture","sourceName":"Lecture 04","locator":"08:42","text":"The light-dependent reactions take place in the thylakoid membrane."}]
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/chat.py
+  - description: Abstain when the retrieved context lacks evidence
+    vars:
+      question: Who discovered photosynthesis?
+      expect_grounded: "false"
+      retrieved_context: >-
+        [{"sourceId":"lecture","sourceName":"Lecture 04","locator":"08:42","text":"The light-dependent reactions take place in the thylakoid membrane."}]
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/chat.py

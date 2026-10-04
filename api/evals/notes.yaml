@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Noteesta note synthesis covers every analyzed source section
+prompts:
+  - file://../../prompts/notes-synthesis.txt
+providers:
+  - id: file://provider.py
+    config:
+      model: "{{ env.OLLAMA_MODEL }}"
+      base_url: "{{ env.OLLAMA_BASE_URL }}"
+      num_ctx: 32768
+      num_predict: 5000
+tests:
+  - description: Combine two complementary source analyses with traceable evidence
+    vars:
+      detail_level: balanced
+      learner_level: intermediate
+      section_analyses: >-
+        [{"sourceId":"lecture","sourceName":"Lecture 04","locator":"08:42","title":"Light reactions","summary":"Light reactions occur in the thylakoid membrane.","claims":[{"text":"Light reactions produce ATP and NADPH.","locator":"08:42","excerpt":"They produce ATP and NADPH."}],"keyTerms":[],"uncertainties":[]},{"sourceId":"slides","sourceName":"Slides","locator":"page 6","title":"Calvin cycle","summary":"The Calvin cycle occurs in the stroma.","claims":[{"text":"The Calvin cycle uses ATP and NADPH to produce G3P.","locator":"page 6","excerpt":"uses ATP and NADPH to produce G3P"}],"keyTerms":[],"uncertainties":[]}]
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/notes.py

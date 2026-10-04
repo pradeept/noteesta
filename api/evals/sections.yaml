@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Noteesta section extraction preserves source evidence
+prompts:
+  - file://../../prompts/section-extraction.txt
+providers:
+  - id: file://provider.py
+    config:
+      model: "{{ env.OLLAMA_MODEL }}"
+      base_url: "{{ env.OLLAMA_BASE_URL }}"
+      num_ctx: 32768
+      num_predict: 1800
+tests:
+  - description: Extract claims without filling gaps from general knowledge
+    vars:
+      source_id: lecture
+      source_name: Lecture 04 recording
+      locator: "08:42"
+      source_text: The light-dependent reactions take place in the thylakoid membrane. They produce ATP and NADPH. Oxygen is released when water is split.
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/section.py

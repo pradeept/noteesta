@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Noteesta optional learning materials are answerable and grounded
+prompts:
+  - file://../../prompts/materials-generation.txt
+providers:
+  - id: file://provider.py
+    config:
+      model: "{{ env.OLLAMA_MODEL }}"
+      base_url: "{{ env.OLLAMA_BASE_URL }}"
+      num_ctx: 32768
+      num_predict: 4000
+tests:
+  - description: Generate every selected material with valid answers and evidence
+    vars:
+      requested_materials: '["flashcards","mcqs","trueFalse","roadmap"]'
+      study_context: '{"target_exam_date":"2026-10-20","study_hours_per_day":1.5}'
+      grounded_notes: >-
+        {"summary":"Photosynthesis has two linked stages.","sections":[{"id":"overview","title":"Overview","markdown":"Light reactions occur in the thylakoid and produce ATP and NADPH.","evidence":[{"sourceId":"lecture","locator":"08:42","excerpt":"produce ATP and NADPH"}]},{"id":"connection","title":"Connection","markdown":"The Calvin cycle uses ATP and NADPH in the stroma.","evidence":[{"sourceId":"lecture","locator":"08:42","excerpt":"uses ATP and NADPH"}]}]}
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/materials.py

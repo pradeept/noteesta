@@ -1,0 +1,66 @@
+[project]
+name = "noteesta-api"
+version = "0.1.0"
+description = "FastAPI service and Celery workers for Noteesta"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi[standard]>=0.118.0",
+  "pydantic-settings>=2.11.0",
+  "pymongo>=4.15.0",
+  "celery[redis]>=5.5.0",
+  "boto3>=1.40.0",
+  "docling>=2.58.0",
+  "httpx>=0.28.0",
+  "langchain-core>=1.1.0",
+  "langchain-mongodb>=0.7.0",
+  "langchain-ollama>=1.0.0",
+  "langchain-text-splitters>=1.0.0",
+  "pillow>=11.3.0",
+  "python-multipart>=0.0.20",
+  "faster-whisper>=1.2.1",
+  "yt-dlp>=2026.9.0",
+  "torch>=2.14.1",
+  "torchvision>=0.29.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.0",
+  "pytest-asyncio>=1.2.0",
+  "ruff>=0.14.0",
+]
+
+[tool.uv]
+package = true
+preview-features = ["index-by-name"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["noteesta_api"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.fastapi]
+entrypoint = "main:app"

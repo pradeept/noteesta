@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Noteesta visual specifications use only sourced relationships and values
+prompts:
+  - file://../../prompts/visual-spec.txt
+providers:
+  - id: file://provider.py
+    config:
+      model: "{{ env.OLLAMA_MODEL }}"
+      base_url: "{{ env.OLLAMA_BASE_URL }}"
+      num_ctx: 32768
+      num_predict: 2000
+tests:
+  - description: Never invent chart values
+    vars:
+      grounded_notes: >-
+        {"summary":"Students studied for either two or four hours.","sections":[{"id":"results","title":"Study time","markdown":"Group A studied for 2 hours. Group B studied for 4 hours.","evidence":[{"sourceId":"survey","locator":"table 1","excerpt":"Group A: 2 hours; Group B: 4 hours"}]}]}
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/visual.py
