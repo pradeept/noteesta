@@ -58,6 +58,8 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 
 The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
 
+The homepage at `/` shows Study Pills, collections, and the source library. Each Study Pill opens at `/pills/<id>`. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
+
 You can also build the API, worker, and frontend with `docker compose --env-file .env --env-file api/.env up --build`. Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `api/.env`. API and worker containers read `api/.env`; Next.js reads the root `.env`. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file.
 
 ## Environment
@@ -84,6 +86,8 @@ PROMPTFOO_PYTHON="$(cd api && uv run python -c 'import sys; print(sys.executable
 ```
 
 Replace `sections.yaml` with `notes.yaml`, `materials.yaml`, `visuals.yaml`, or `chat.yaml` to run another required job. The Python provider reads `OLLAMA_BASE_URL` and `OLLAMA_MODEL`; Qwen reasoning is disabled for these structured-output jobs so assertions receive only final JSON.
+
+The materials suite checks the MCQ target for concise notes (two questions) and fuller notes (five distinct questions), including source evidence for each answer.
 
 Run all suites sequentially:
 
@@ -130,16 +134,16 @@ Wait for the index status to become **Ready** before processing a Study Pill. Th
 
 ## UI/UX improvements
 
-- [ ] Let users edit a Study Pill's title and add a description. Start with the italic, borderless “Add a description” placeholder.
-- [ ] Add tags and a way to organize multiple Study Pills into user-created groups. “Collections” may be clearer than “racks”; confirm the name during implementation. Let users select one or more pills and move them into a group. Update the “My Study Pills” navigation to show groups and pills with distinct icons.
-- [ ] Redesign the roadmap as a polished, on-theme milestone path with green flags, using the provided roadmap image as inspiration.
-- [ ] Fix Focus mode so it improves the reading layout without introducing alignment problems.
-- [ ] Rename “Ask this Pill” to “Got a doubt? 🤔” and choose an icon that fits the existing visual style.
-- [ ] Improve the reading preferences dialog with useful appearance options, including background choices, and replace the current ad hoc controls with an appropriate accessible UI component library where it helps dialogs and other controls.
-- [ ] If a component library is added, provide three or four custom color themes from the navbar and apply the selected theme consistently across the dashboard, including buttons and text.
-- [ ] Add a rotating fact card, preferring science, then basic mathematics, with computer topics rare and history less frequent. Fetch fact summaries and their article links from Wikipedia's REST API. Rotate every six seconds with a smooth flip animation; pause while hovered, highlight the fact on hover, and open its Wikipedia page in a new tab when clicked.
-- [ ] Show each attached file or YouTube source while a Study Pill is processing, between its title and progress bar.
-- [ ] Show the total processing time after a Study Pill finishes, in its footer.
-- [ ] Add a file library where users can find, download, and delete their files. Before deletion, explain that removing a file can break citations in the Study Pills that use it, and identify the affected pills. Also list youtube links they have pasted and map that to the pill.
-- [ ] Make sure you reset the "Make it yours" and other settings to default in New study pill modal. Currently the previous inputs were persisted when I opened the modal for new pill. Default: Select only Flashcards, Detail level -> balanced and learner level intermediate.
-- [ ] Show 
+- [x] Let users edit a Study Pill's title and add a description. Start with the italic, borderless “Add a description” placeholder.
+- [x] Add tags and a way to organize multiple Study Pills into user-created groups. “Collections” may be clearer than “racks”; confirm the name during implementation. Let users select one or more pills and move them into a group. Update the “My Study Pills” navigation to show groups and pills with distinct icons.
+- [x] Redesign the roadmap as a polished, on-theme milestone path with green flags, using the provided roadmap image as inspiration.
+- [x] Fix Focus mode so it improves the reading layout without introducing alignment problems.
+- [x] Rename “Ask this Pill” to “Got a doubt? 🤔” and choose an icon that fits the existing visual style.
+- [x] Improve the reading preferences dialog with useful appearance options, including background choices, and replace the current ad hoc controls with an appropriate accessible UI component library where it helps dialogs and other controls.
+- [x] If a component library is added, provide three or four custom color themes from the navbar and apply the selected theme consistently across the dashboard, including buttons and text.
+- [x] Add a rotating fact card, preferring science, then basic mathematics, with computer topics rare and history less frequent. Fetch fact summaries and their article links from Wikipedia's REST API. Rotate every six seconds with a smooth flip animation; pause while hovered, highlight the fact on hover, and open its Wikipedia page in a new tab when clicked.
+- [x] Show each attached file or YouTube source while a Study Pill is processing, between its title and progress bar.
+- [x] Show the total processing time after a Study Pill finishes, in its footer.
+- [x] Add a file library where users can find, download, and delete their files. Before deletion, explain that removing a file can break citations in the Study Pills that use it, and identify the affected pills. Also list youtube links they have pasted and map that to the pill.
+- [x] Make sure you reset the "Make it yours" and other settings to default in New study pill modal. Currently the previous inputs were persisted when I opened the modal for new pill. Default: Select only Flashcards, Detail level -> balanced and learner level intermediate.
+- [x] Can we show an icon for the failed or retry pills?

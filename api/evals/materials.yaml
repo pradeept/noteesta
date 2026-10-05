@@ -10,12 +10,26 @@ providers:
       num_ctx: 32768
       num_predict: 4000
 tests:
-  - description: Generate every selected material with valid answers and evidence
+  - description: Generate at least two supported MCQs from concise notes
     vars:
       requested_materials: '["flashcards","mcqs","trueFalse","roadmap"]'
+      mcq_target: '2'
+      existing_mcqs: '[]'
       study_context: '{"target_exam_date":"2026-10-20","study_hours_per_day":1.5}'
       grounded_notes: >-
         {"summary":"Photosynthesis has two linked stages.","sections":[{"id":"overview","title":"Overview","markdown":"Light reactions occur in the thylakoid and produce ATP and NADPH.","evidence":[{"sourceId":"lecture","locator":"08:42","excerpt":"produce ATP and NADPH"}]},{"id":"connection","title":"Connection","markdown":"The Calvin cycle uses ATP and NADPH in the stroma.","evidence":[{"sourceId":"lecture","locator":"08:42","excerpt":"uses ATP and NADPH"}]}]}
+    assert:
+      - type: is-json
+      - type: python
+        value: file://assertions/materials.py
+  - description: Generate five distinct supported MCQs from a fuller lesson
+    vars:
+      requested_materials: '["flashcards","mcqs","trueFalse","roadmap"]'
+      mcq_target: '5'
+      existing_mcqs: '[]'
+      study_context: '{"detail_level":"balanced","learner_level":"intermediate"}'
+      grounded_notes: >-
+        {"summary":"Prenatal development progresses through fertilization, cleavage, implantation, gastrulation, and organogenesis.","sections":[{"id":"fertilization","title":"Fertilization","markdown":"Fertilization usually occurs in the ampulla of the uterine tube. Sperm and egg fuse to form a diploid zygote. The zygote begins cleavage without increasing its overall size.","evidence":[{"sourceId":"lecture","locator":"01:00","excerpt":"fusion forms a diploid zygote"}]},{"id":"cleavage","title":"Cleavage and blastocyst","markdown":"Cleavage produces blastomeres and then a compact morula. A fluid-filled blastocyst forms with an inner cell mass and outer trophoblast. The inner cell mass gives rise to the embryo proper, while the trophoblast contributes to extraembryonic structures.","evidence":[{"sourceId":"lecture","locator":"03:00","excerpt":"blastocyst contains inner cell mass and trophoblast"}]},{"id":"implantation","title":"Implantation","markdown":"The blastocyst implants into the endometrium. Trophoblast cells help invade the uterine lining and later secrete hCG, maintaining the corpus luteum and progesterone production early in pregnancy.","evidence":[{"sourceId":"lecture","locator":"05:00","excerpt":"trophoblast secretes hCG"}]},{"id":"gastrulation","title":"Gastrulation","markdown":"Gastrulation creates three germ layers: ectoderm, mesoderm, and endoderm. Ectoderm contributes to skin and nervous tissue; mesoderm contributes to muscle and connective tissue; endoderm contributes to the lining of the digestive tract.","evidence":[{"sourceId":"lecture","locator":"08:00","excerpt":"gastrulation forms three germ layers"}]}]}
     assert:
       - type: is-json
       - type: python

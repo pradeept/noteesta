@@ -1,5 +1,5 @@
-import { StudyShell } from '@/components/study-shell';
+import { HomeDashboard } from '@/components/home-dashboard';
 
 export default function Home() {
-  return <StudyShell />;
+  return <HomeDashboard />;
 }

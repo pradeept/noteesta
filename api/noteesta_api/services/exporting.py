@@ -10,7 +10,10 @@ async def build_export(pill: StudyPill, storage: ObjectStorage) -> bytes:
     if not pill.artifact:
         raise ValueError("This Study Pill has no generated artifact")
 
-    markdown = [f"# {pill.title}", "", pill.artifact.summary, ""]
+    markdown = [f"# {pill.title}", ""]
+    if pill.description:
+        markdown.extend([pill.description, ""])
+    markdown.extend([pill.artifact.summary, ""])
     for section in pill.artifact.sections:
         markdown.extend([f"## {section.title}", "", section.markdown, ""])
         for citation in section.citations:

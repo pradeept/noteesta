@@ -57,19 +57,33 @@ class StudyPillOrchestrator:
         )
 
     async def generate_materials(
-        self, *, requested_materials: str, study_context: str, grounded_notes: str
+        self,
+        *,
+        requested_materials: str,
+        study_context: str,
+        grounded_notes: str,
+        mcq_target: int = 0,
+        existing_mcqs: str = "[]",
     ) -> dict[str, Any]:
         """Create the selected practice materials from grounded generated notes."""
 
+        schema = {**MATERIALS_SCHEMA, "properties": dict(MATERIALS_SCHEMA["properties"])}
+        if mcq_target:
+            schema["properties"]["mcqs"] = {
+                **MATERIALS_SCHEMA["properties"]["mcqs"],
+                "minItems": mcq_target,
+            }
         return await self.client.generate_json(
             render_prompt(
                 "materials-generation",
                 requested_materials=requested_materials,
+                mcq_target=str(mcq_target),
+                existing_mcqs=existing_mcqs,
                 study_context=study_context,
                 grounded_notes=grounded_notes,
             ),
-            MATERIALS_SCHEMA,
-            num_predict=5000,
+            schema,
+            num_predict=7000,
         )
 
     async def generate_visual(self, *, grounded_notes: str) -> dict[str, Any]:

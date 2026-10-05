@@ -28,10 +28,14 @@ export const demoPill: StudyPill = {
   id: 'demo-photosynthesis',
   title: 'Photosynthesis, made clear',
   subject: 'Biology',
+  description: 'A gentle guide to how plants capture and use light energy.',
+  tags: ['plants', 'energy'],
+  collectionId: undefined,
   status: 'ready',
   progress: 100,
   selectedMaterials: ['notes', 'flashcards', 'mcqs', 'trueFalse', 'roadmap'],
   updatedAt: '2026-10-03T08:30:00.000Z',
+  processingDurationSeconds: 94,
   isDemo: true,
   sources: [
     {

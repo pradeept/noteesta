@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
@@ -14,7 +15,15 @@ from noteesta_api.config import get_settings
 from noteesta_api.database import database_dependency
 from noteesta_api.dependencies import current_user_id
 from noteesta_api.repository import PillRepository
-from noteesta_api.schemas import AskRequest, ChatAnswer, MaterialKey, Source, StudyPill
+from noteesta_api.schemas import (
+    AskRequest,
+    BulkPillCollectionUpdate,
+    ChatAnswer,
+    MaterialKey,
+    Source,
+    StudyPill,
+    StudyPillUpdate,
+)
 from noteesta_api.services.chat import answer_question
 from noteesta_api.services.exporting import build_export
 from noteesta_api.storage import get_storage
@@ -107,6 +116,7 @@ async def create_study_pill(
                 kind=_source_kind(filename, upload.content_type or ""),
                 detail=_file_detail(len(content)),
                 object_key=object_key,
+                original_available=True,
             )
         )
 
@@ -118,6 +128,7 @@ async def create_study_pill(
                 kind="youtube",
                 detail="YouTube captions",
                 url=normalized_youtube_url,
+                original_available=False,
             )
         )
     if not sources:
@@ -130,6 +141,7 @@ async def create_study_pill(
         user_id=user_id,
         title=title.strip(),
         subject=subject.strip(),
+        processing_duration_seconds=0,
         status="queued",
         progress=2,
         stage="Waiting for a worker",
@@ -145,6 +157,91 @@ async def create_study_pill(
     await PillRepository(database).create(pill)
     process_pill_task.delay(pill.id)
     return pill
+
+
+@router.patch("/{pill_id}", response_model=StudyPill)
+async def update_study_pill(
+    pill_id: str,
+    body: StudyPillUpdate,
+    user_id: Annotated[str, Depends(current_user_id)],
+    database: Annotated[AsyncDatabase, Depends(database_dependency)],
+) -> StudyPill:
+    repository = PillRepository(database)
+    pill = await repository.get(pill_id, user_id)
+    if pill is None:
+        raise HTTPException(status_code=404, detail="Study Pill not found.")
+    changes = body.model_dump(exclude_unset=True)
+    if "title" in changes:
+        title = (changes["title"] or "").strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="Title cannot be empty.")
+        changes["title"] = title
+    if "description" in changes and changes["description"] is not None:
+        changes["description"] = changes["description"].strip() or None
+    if "tags" in changes and changes["tags"] is not None:
+        tags = []
+        seen = set()
+        for tag in changes["tags"]:
+            normalized = tag.strip()
+            key = normalized.casefold()
+            if normalized and key not in seen:
+                if len(normalized) > 40:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Tags must be 40 characters or fewer.",
+                    )
+                seen.add(key)
+                tags.append(normalized)
+        changes["tags"] = tags
+    if changes.get("collection_id"):
+        collection = await database.collections.find_one(
+            {"_id": changes["collection_id"], "user_id": user_id}
+        )
+        if collection is None:
+            raise HTTPException(status_code=404, detail="Collection not found.")
+    if not changes:
+        return pill
+    updated = await repository.update(pill_id, **changes)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Study Pill not found.")
+    return updated
+
+
+@router.patch("/bulk/collection", response_model=list[StudyPill])
+async def bulk_update_pill_collection(
+    body: BulkPillCollectionUpdate,
+    user_id: Annotated[str, Depends(current_user_id)],
+    database: Annotated[AsyncDatabase, Depends(database_dependency)],
+) -> list[StudyPill]:
+    pill_ids = list(dict.fromkeys(body.pill_ids))
+    if body.collection_id:
+        collection = await database.collections.find_one(
+            {"_id": body.collection_id, "user_id": user_id}
+        )
+        if collection is None:
+            raise HTTPException(status_code=404, detail="Collection not found.")
+    matches = [
+        document
+        async for document in database.pills.find(
+            {"_id": {"$in": pill_ids}, "user_id": user_id}
+        )
+    ]
+    if len(matches) != len(pill_ids):
+        raise HTTPException(status_code=404, detail="One or more Study Pills were not found.")
+    await database.pills.update_many(
+        {"_id": {"$in": pill_ids}, "user_id": user_id},
+        {"$set": {"collection_id": body.collection_id, "updated_at": datetime.now(UTC)}},
+    )
+    updated = [
+        document
+        async for document in database.pills.find(
+            {"_id": {"$in": pill_ids}, "user_id": user_id}
+        )
+    ]
+    return [
+        StudyPill.model_validate({**document, "id": document["_id"]})
+        for document in updated
+    ]
 
 
 @router.get("/{pill_id}", response_model=StudyPill)

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, FlagPennantIcon } from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CitationButton } from '@/components/citation-button';
@@ -111,7 +111,9 @@ function Notes({
       {artifact.sections.map((section, sectionIndex) => (
         <section id={section.id} key={section.id}>
           <h2>{section.title}</h2>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{section.markdown}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {withoutRepeatedHeading(section.markdown, section.title)}
+          </ReactMarkdown>
           {sectionIndex === 1 && artifact.visuals[0] ? (
             <FlowVisual
               visual={artifact.visuals[0]}
@@ -122,7 +124,7 @@ function Notes({
             <span>Sources</span>
             {section.citations.map((citation, index) => (
               <CitationButton
-                key={`${citation.sourceId}-${citation.locator}-${index}`}
+                key={`${citation.sourceId}-${citation.locator}-${citation.excerpt}`}
                 citation={citation}
                 index={index + 1}
                 onOpen={onCitation}
@@ -136,6 +138,17 @@ function Notes({
         <span>Check a citation whenever the detail matters.</span>
       </footer>
     </div>
+  );
+}
+
+function withoutRepeatedHeading(markdown: string, title: string): string {
+  return markdown.replace(/^\s{0,3}#{1,3}\s+([^\n]+)\n*/, (heading, text: string) =>
+    text
+      .replace(/\s+#+\s*$/, '')
+      .trim()
+      .toLocaleLowerCase() === title.trim().toLocaleLowerCase()
+      ? ''
+      : heading,
   );
 }
 
@@ -331,12 +344,15 @@ function Roadmap({
       <ol className="roadmap-list">
         {artifact.roadmap.map((item, index) => (
           <li key={item.id}>
-            <span>{index + 1}</span>
+            <span className="roadmap-marker" aria-hidden="true">
+              <FlagPennantIcon size={16} weight="fill" />
+            </span>
             <div>
+              <small className="roadmap-step">Step {String(index + 1).padStart(2, '0')}</small>
               <strong>{item.title}</strong>
               <p>{item.description}</p>
             </div>
-            <button type="button" onClick={() => onOpen(item.sectionId)}>
+            <button type="button" className="roadmap-open" onClick={() => onOpen(item.sectionId)}>
               Open notes
             </button>
           </li>
@@ -358,7 +374,7 @@ function MaterialCitations({
       <span>Check the source</span>
       {citations.map((citation, index) => (
         <CitationButton
-          key={`${citation.sourceId}-${citation.locator}-${index}`}
+          key={`${citation.sourceId}-${citation.locator}-${citation.excerpt}`}
           citation={citation}
           index={index + 1}
           onOpen={onCitation}

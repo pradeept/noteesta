@@ -15,7 +15,32 @@ export interface Source {
   kind: SourceKind;
   detail: string;
   status: 'uploaded' | 'processing' | 'ready' | 'failed';
+  originalAvailable?: boolean;
   excerpt?: string;
+}
+
+export type CollectionColor = 'moss' | 'ocean' | 'terracotta' | 'plum' | 'gold' | 'slate';
+
+export interface Collection {
+  id: string;
+  name: string;
+  color: CollectionColor;
+  createdAt: string;
+}
+
+export interface LibraryPillReference {
+  id: string;
+  title: string;
+}
+
+export interface LibraryEntry {
+  sourceId: string;
+  name: string;
+  kind: SourceKind;
+  detail: string;
+  originalAvailable: boolean;
+  youtubeUrl?: string | null;
+  pills: LibraryPillReference[];
 }
 
 export interface NoteSection {
@@ -82,6 +107,9 @@ export interface StudyPill {
   id: string;
   title: string;
   subject: string;
+  description?: string | null;
+  tags: string[];
+  collectionId?: string | null;
   status: 'draft' | 'queued' | 'processing' | 'ready' | 'failed';
   progress: number;
   stage?: string;
@@ -89,6 +117,7 @@ export interface StudyPill {
   sources: Source[];
   artifact?: StudyArtifact;
   updatedAt: string;
+  processingDurationSeconds?: number | null;
   error?: string;
   isDemo?: boolean;
 }

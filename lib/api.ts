@@ -1,4 +1,11 @@
-import type { ChatAnswer, CreatePillInput, StudyPill } from '@/lib/types';
+import type {
+  ChatAnswer,
+  Collection,
+  CollectionColor,
+  CreatePillInput,
+  LibraryEntry,
+  StudyPill,
+} from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
 const USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo-user';
@@ -16,11 +23,82 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body?.detail ?? `Request failed with status ${response.status}`);
   }
 
+  if (response.status === 204) return undefined as T;
+
   return response.json() as Promise<T>;
 }
 
 export async function listPills(): Promise<StudyPill[]> {
   return request<StudyPill[]>('/pills');
+}
+
+export async function updatePill(
+  id: string,
+  changes: {
+    title?: string;
+    description?: string | null;
+    tags?: string[];
+    collectionId?: string | null;
+  },
+): Promise<StudyPill> {
+  return request<StudyPill>(`/pills/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  });
+}
+
+export async function movePillsToCollection(
+  pillIds: string[],
+  collectionId: string | null,
+): Promise<StudyPill[]> {
+  return request<StudyPill[]>('/pills/bulk/collection', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pillIds, collectionId }),
+  });
+}
+
+export async function listCollections(): Promise<Collection[]> {
+  return request<Collection[]>('/collections');
+}
+
+export async function createCollection(input: {
+  name: string;
+  color: CollectionColor;
+}): Promise<Collection> {
+  return request<Collection>('/collections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateCollection(
+  id: string,
+  changes: { name?: string; color?: CollectionColor },
+): Promise<Collection> {
+  return request<Collection>(`/collections/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  });
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  await request<void>(`/collections/${id}`, { method: 'DELETE' });
+}
+
+export async function listLibrary(): Promise<LibraryEntry[]> {
+  return request<LibraryEntry[]>('/library');
+}
+
+export async function deleteLibraryOriginal(sourceId: string): Promise<LibraryEntry> {
+  return request<LibraryEntry>(`/library/${sourceId}`, { method: 'DELETE' });
+}
+
+export function libraryDownloadUrl(sourceId: string): string {
+  return `${API_URL}/library/${sourceId}/download`;
 }
 
 export async function getPill(id: string): Promise<StudyPill> {

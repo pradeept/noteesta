@@ -43,6 +43,18 @@ class Source(ApiModel):
     excerpt: str | None = None
     object_key: str | None = Field(default=None, exclude=True)
     url: str | None = Field(default=None, exclude=True)
+    original_available: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def youtube_source_has_no_stored_file(cls, values: Any) -> Any:
+        if (
+            isinstance(values, dict)
+            and values.get("kind") == "youtube"
+            and "original_available" not in values
+        ):
+            return {**values, "original_available": False}
+        return values
 
 
 class NoteSection(ApiModel):
@@ -135,6 +147,9 @@ class StudyPill(ApiModel):
     user_id: str = Field(exclude=True)
     title: str
     subject: str
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    collection_id: str | None = None
     status: Literal["draft", "queued", "processing", "ready", "failed"] = "draft"
     progress: int = Field(default=0, ge=0, le=100)
     stage: str | None = None
@@ -142,8 +157,57 @@ class StudyPill(ApiModel):
     sources: list[Source] = Field(default_factory=list)
     artifact: StudyArtifact | None = None
     updated_at: datetime = Field(default_factory=utc_now)
+    processing_duration_seconds: int | None = None
     error: str | None = None
     settings: dict[str, Any] = Field(default_factory=dict, exclude=True)
+
+
+CollectionColor = Literal["moss", "ocean", "terracotta", "plum", "gold", "slate"]
+
+
+class Collection(ApiModel):
+    id: str
+    user_id: str = Field(exclude=True)
+    name: str = Field(min_length=1, max_length=60)
+    color: CollectionColor = "moss"
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CollectionCreate(ApiModel):
+    name: str = Field(min_length=1, max_length=60)
+    color: CollectionColor = "moss"
+
+
+class CollectionUpdate(ApiModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    color: CollectionColor | None = None
+
+
+class StudyPillUpdate(ApiModel):
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = Field(default=None, max_length=20)
+    collection_id: str | None = None
+
+
+class BulkPillCollectionUpdate(ApiModel):
+    pill_ids: list[str] = Field(min_length=1, max_length=100)
+    collection_id: str | None = None
+
+
+class LibraryPillReference(ApiModel):
+    id: str
+    title: str
+
+
+class LibraryEntry(ApiModel):
+    source_id: str
+    name: str
+    kind: Literal["audio", "video", "pdf", "document", "image", "youtube"]
+    detail: str
+    original_available: bool
+    youtube_url: str | None = None
+    pills: list[LibraryPillReference]
 
 
 class AskRequest(ApiModel):

@@ -45,6 +45,13 @@ class ObjectStorage:
         )
         return await asyncio.to_thread(response["Body"].read)
 
+    async def delete_object(self, key: str) -> None:
+        await asyncio.to_thread(
+            self.client.delete_object,
+            Bucket=self.bucket,
+            Key=key,
+        )
+
     async def presigned_url(self, key: str, expires: int = 3600) -> str:
         return await asyncio.to_thread(
             self.client.generate_presigned_url,

@@ -1,38 +1,64 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
+import { AlertDialog } from 'radix-ui';
 import {
   BooksIcon,
   PillIcon,
   ChatCircleDotsIcon,
   DownloadSimpleIcon,
   GearSixIcon,
+  FolderOpenIcon,
   ListIcon,
-  MoonIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   PlusIcon,
   SidebarSimpleIcon,
   SparkleIcon,
-  SunIcon,
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react';
 import { Brand } from '@/components/brand';
+import { CollectionNavigation } from '@/components/collection-navigation';
 import { CreatePillDialog } from '@/components/create-pill-dialog';
+import { FileLibraryDialog } from '@/components/file-library-dialog';
+import { PillMetadataEditor } from '@/components/pill-metadata-editor';
+import { ReadingSettingsDialog, ThemePicker } from '@/components/appearance-controls';
 import { VisualCanvas } from '@/components/flow-visual';
 import { SourceIcon } from '@/components/source-icon';
 import { StudyMaterials } from '@/components/study-materials';
-import { askPill, createPill, exportPill, getPill, listPills, retryPill } from '@/lib/api';
+import { WikipediaFactCard } from '@/components/wikipedia-fact-card';
+import {
+  askPill,
+  createPill,
+  deleteCollection,
+  exportPill,
+  getPill,
+  listCollections,
+  listPills,
+  movePillsToCollection,
+  retryPill,
+  updatePill,
+} from '@/lib/api';
 import { demoPill } from '@/lib/fixtures';
-import type { ChatAnswer, Citation, CreatePillInput, StudyPill, VisualSpec } from '@/lib/types';
+import type {
+  ChatAnswer,
+  Citation,
+  Collection,
+  CreatePillInput,
+  StudyPill,
+  VisualSpec,
+} from '@/lib/types';
 
 const enableDemo = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA !== 'false';
 
-export function StudyShell() {
+export function StudyShell({ initialPillId }: { initialPillId: string }) {
+  const router = useRouter();
   const [pills, setPills] = useState<StudyPill[]>([]);
-  const [activeId, setActiveId] = useState('');
+  const [activeId, setActiveId] = useState(initialPillId);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
   const [libraryError, setLibraryError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -40,12 +66,25 @@ export function StudyShell() {
   const [focusMode, setFocusMode] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fileLibraryOpen, setFileLibraryOpen] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [citation, setCitation] = useState<Citation | null>(null);
   const [visual, setVisual] = useState<VisualSpec | null>(null);
   const [readingSize, setReadingSize] = useState(17);
+  const [readerBackground, setReaderBackground] = useState(() =>
+    typeof document !== 'undefined'
+      ? (document.documentElement.dataset.readerBackground ?? 'canvas')
+      : 'canvas',
+  );
+  const [palette, setPalette] = useState(() =>
+    typeof document !== 'undefined'
+      ? (document.documentElement.dataset.palette ?? 'grove')
+      : 'grove',
+  );
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [toast, setToast] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activePill = pills.find((pill) => pill.id === activeId) ?? pills[0];
+  const activePill = pills.find((pill) => pill.id === activeId);
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -58,14 +97,16 @@ export function StudyShell() {
     listPills()
       .then((items) => {
         if (cancelled) return;
-        if (items.length) {
-          setPills(items);
-          setActiveId(items[0].id);
-        }
+        setPills(
+          initialPillId === demoPill.id && enableDemo
+            ? [...items.filter((item) => item.id !== demoPill.id), demoPill]
+            : items,
+        );
         setLibraryError('');
       })
       .catch(() => {
         if (cancelled) return;
+        if (initialPillId === demoPill.id && enableDemo) setPills([demoPill]);
         setLibraryError(
           'The library could not connect to the API. You can still explore the example.',
         );
@@ -76,6 +117,12 @@ export function StudyShell() {
     return () => {
       cancelled = true;
     };
+  }, [initialPillId]);
+
+  useEffect(() => {
+    listCollections()
+      .then(setCollections)
+      .catch(() => setLibraryError('Collections could not be loaded. Try refreshing the page.'));
   }, []);
 
   useEffect(() => {
@@ -98,6 +145,7 @@ export function StudyShell() {
     const pill = await createPill(input);
     setPills((current) => [pill, ...current.filter((item) => item.id !== pill.id)]);
     setActiveId(pill.id);
+    router.push(`/pills/${pill.id}`);
     setMobileOpen(false);
     notify('Study Pill created. Your sources are being processed.');
   }
@@ -131,9 +179,69 @@ export function StudyShell() {
     }
   }
 
+  async function handleSaveMetadata(changes: {
+    title: string;
+    description: string | null;
+    tags: string[];
+  }) {
+    if (!activePill) return;
+    if (activePill.isDemo) {
+      setPills((current) =>
+        current.map((pill) =>
+          pill.id === activePill.id
+            ? {
+                ...pill,
+                title: changes.title,
+                description: changes.description ?? undefined,
+                tags: changes.tags,
+              }
+            : pill,
+        ),
+      );
+      notify('Study Pill details updated in this example.');
+      return;
+    }
+    const updated = await updatePill(activePill.id, changes);
+    setPills((current) => current.map((pill) => (pill.id === updated.id ? updated : pill)));
+    notify('Study Pill details saved.');
+  }
+
+  async function handleMovePills(ids: string[], collectionId: string | null) {
+    const updated = await movePillsToCollection(ids, collectionId);
+    const byId = new Map(updated.map((pill) => [pill.id, pill]));
+    setPills((current) => current.map((pill) => byId.get(pill.id) ?? pill));
+    notify(
+      collectionId ? 'Study Pills moved to collection.' : 'Study Pills removed from collection.',
+    );
+  }
+
+  async function handleDeleteCollection(id: string) {
+    await deleteCollection(id);
+    setCollections((current) => current.filter((collection) => collection.id !== id));
+    setPills((current) =>
+      current.map((pill) =>
+        pill.collectionId === id ? { ...pill, collectionId: undefined } : pill,
+      ),
+    );
+    notify('Collection deleted. Its Study Pills remain in your library.');
+  }
+
+  function choosePalette(value: string) {
+    setPalette(value);
+    document.documentElement.dataset.palette = value;
+    localStorage.setItem('noteesta-palette', value);
+  }
+
+  function chooseReaderBackground(value: string) {
+    setReaderBackground(value);
+    document.documentElement.dataset.readerBackground = value;
+    localStorage.setItem('noteesta-reader-background', value);
+  }
+
   function selectPill(id: string) {
     setActiveId(id);
     setMobileOpen(false);
+    router.push(`/pills/${id}`);
   }
 
   if (!activePill && loadingLibrary) {
@@ -157,32 +265,41 @@ export function StudyShell() {
     );
   }
 
-  if (!activePill && !loadingLibrary) {
+  if (!activePill) {
+    const hasPills = pills.length > 0;
     return (
       <main className="empty-shell relative flex items-center justify-center min-h-dvh bg-canvas [padding:100px_40px] [&_>_.brand]:absolute [&_>_.brand]:top-[32px] [&_>_.brand]:left-[40px] [&_>_div:last-of-type]:w-[min(600px,_100%)] [&_>_div:last-of-type]:items-center [&_>_div:last-of-type]:pb-[0] [&_>_div:last-of-type]:text-center [&_h1]:text-[40px] [&_h1]:font-semibold [&_h1]:max-w-[none] [&_h1]:leading-[1.18] [&_>_div:last-of-type_>_p]:max-w-[52ch] [&_>_div:last-of-type_>_p]:[margin-inline:auto] [&_>_div:last-of-type_>_svg]:bg-accent-soft [&_>_div:last-of-type_>_svg]:rounded-[14px] [&_>_div:last-of-type_>_svg]:p-4.5 [&_>_div:last-of-type_>_svg]:[box-sizing:content-box] [&_>_div:last-of-type_>_svg]:mb-3 [&_.inline-error]:mt-6 [&_.inline-error]:max-w-[48ch] max-[761px]:[padding:100px_24px] max-[761px]:[&_>_.brand]:top-[24px] max-[761px]:[&_>_.brand]:left-[24px] max-[761px]:[&_h1]:text-[34px]">
         <Brand />
         <div>
           <PillIcon size={38} weight="duotone" />
-          <h1>Start with one lesson</h1>
+          <h1>{hasPills ? 'Study Pill not found' : 'Start with one lesson'}</h1>
           <p>
-            Add a recording, document, image, video, or YouTube link. Noteesta will keep every
-            answer tied to your sources.
+            {hasPills
+              ? 'This Study Pill is no longer in your library. Return home to choose another one.'
+              : 'Add a recording, document, image, video, or YouTube link. Noteesta will keep every answer tied to your sources.'}
           </p>
           <div className="empty-actions flex flex-wrap justify-center gap-3 items-center mt-4 [&_.primary-button]:mt-[0]">
-            <button
-              type="button"
-              className="primary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold shadow-none"
-              onClick={() => setCreateOpen(true)}
+            <Link
+              href="/"
+              className="secondary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold"
             >
-              <PlusIcon size={18} /> New Study Pill
-            </button>
-            {enableDemo ? (
+              View your library
+            </Link>
+            {!hasPills ? (
+              <button
+                type="button"
+                className="primary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold shadow-none"
+                onClick={() => setCreateOpen(true)}
+              >
+                <PlusIcon size={18} /> New Study Pill
+              </button>
+            ) : null}
+            {!hasPills && enableDemo ? (
               <button
                 type="button"
                 className="secondary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold"
                 onClick={() => {
-                  setPills([demoPill]);
-                  setActiveId(demoPill.id);
+                  router.push(`/pills/${demoPill.id}`);
                 }}
               >
                 See example
@@ -192,6 +309,7 @@ export function StudyShell() {
           {libraryError ? <p className="inline-error">{libraryError}</p> : null}
         </div>
         <CreatePillDialog
+          key={`create-${createOpen ? 'open' : 'closed'}`}
           open={createOpen}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
@@ -234,34 +352,22 @@ export function StudyShell() {
           <PlusIcon size={18} weight="bold" /> New Study Pill
         </button>
         <div className="library-list mt-[30px]">
-          <p className="nav-label text-xs font-semibold text-muted">Your Study Pills</p>
-          {pills.map((pill) => (
-            <button
-              type="button"
-              className={
-                pill.id === activePill?.id
-                  ? 'library-item [padding:16px_18px] mb-2 rounded-full border border-line hover:border-accent [&.active]:bg-accent-soft [&_>_.library-item-title]:flex [&_>_.library-item-title]:items-center [&_>_.library-item-title]:gap-2.5 [&_>_.library-item-title]:text-sm [&_>_.library-item-title]:font-[650] [&_small]:mt-[7px] [&_small]:pl-[32px] [&_small]:text-[11px] active'
-                  : 'library-item [padding:16px_18px] mb-2 rounded-full border border-line hover:border-accent [&.active]:bg-accent-soft [&_>_.library-item-title]:flex [&_>_.library-item-title]:items-center [&_>_.library-item-title]:gap-2.5 [&_>_.library-item-title]:text-sm [&_>_.library-item-title]:font-[650] [&_small]:mt-[7px] [&_small]:pl-[32px] [&_small]:text-[11px]'
-              }
-              key={pill.id}
-              onClick={() => selectPill(pill.id)}
-              aria-current={pill.id === activePill?.id ? 'page' : undefined}
-            >
-              <span className="library-item-title [&_>_svg]:flex-none [&_>_svg]:text-accent [&_>_span]:overflow-hidden [&_>_span]:text-ellipsis">
-                <PillIcon size={22} weight="duotone" className="text-accent" />
-                <span>{pill.title}</span>
-              </span>
-              <small>
-                {pill.subject} · {pill.sources.length}{' '}
-                {pill.sources.length === 1 ? 'source' : 'sources'}
-              </small>
-              {pill.status === 'processing' || pill.status === 'queued' ? (
-                <span className="mini-progress" aria-label={`${pill.progress}% complete`}>
-                  <i style={{ width: `${pill.progress}%` }} />
-                </span>
-              ) : null}
-            </button>
-          ))}
+          <CollectionNavigation
+            pills={pills}
+            collections={collections}
+            activeId={activePill?.id ?? ''}
+            onSelect={selectPill}
+            onCollectionCreated={(collection) =>
+              setCollections((current) => [...current, collection])
+            }
+            onCollectionUpdated={(updated) =>
+              setCollections((current) =>
+                current.map((collection) => (collection.id === updated.id ? updated : collection)),
+              )
+            }
+            onCollectionDeleted={handleDeleteCollection}
+            onMove={handleMovePills}
+          />
           {loadingLibrary ? <LibrarySkeleton /> : null}
           {enableDemo ? (
             <button
@@ -281,6 +387,9 @@ export function StudyShell() {
             </button>
           ) : null}
         </div>
+        {activePill.status === 'queued' || activePill.status === 'processing' ? (
+          <WikipediaFactCard />
+        ) : null}
         <div className="sidebar-footer [&_strong]:font-semibold">
           <span className="avatar" aria-hidden="true">
             ST
@@ -318,12 +427,20 @@ export function StudyShell() {
               <ListIcon size={20} />
             </button>
             <p>
-              <span>My Study Pills</span>
+              <Link href="/">My Study Pills</Link>
               <b>/</b>
               <span className="breadcrumb-current">{activePill.subject}</span>
             </p>
           </div>
           <div className="topbar-actions">
+            <ThemePicker value={palette} onChange={choosePalette} />
+            <button
+              type="button"
+              className="quiet-button file-library-trigger"
+              onClick={() => setFileLibraryOpen(true)}
+            >
+              <FolderOpenIcon size={18} /> <span>Source library</span>
+            </button>
             <button
               type="button"
               className="quiet-button focus-toggle"
@@ -362,7 +479,7 @@ export function StudyShell() {
         ) : activePill.status === 'failed' ? (
           <FailedView pill={activePill} onRetry={handleRetry} />
         ) : activePill.artifact ? (
-          <div className="document-layout w-[min(1080px,_calc(100%_-_80px))] gap-12 pt-[48px] max-[1280px]:w-[min(860px,_calc(100%_-_56px))] max-[1280px]:gap-7 max-[761px]:w-full max-[761px]:[padding:28px_22px_96px]">
+          <div className="document-layout">
             <article className="document-column max-w-[75ch] [&_>_h1]:text-[38px] [&_>_h1]:font-[650] [&_>_h1]:[margin:20px_0_12px] [&_>_h1]:leading-[1.16] [&_>_h1]:tracking-[-0.035em] [&_>_h1]:[overflow-wrap:anywhere] max-[761px]:[&_>_h1]:text-[30px]">
               <div className="document-meta gap-3.5 [&_span:first-child]:bg-surface [&_span:first-child]:text-muted [&_span:first-child]:rounded-[999px] [&_span:first-child]:[padding:5px_11px] [&_span:first-child]:font-[550] [&_span_+_span::before]:hidden">
                 <span>{activePill.subject}</span>
@@ -380,10 +497,13 @@ export function StudyShell() {
                 </span>
                 {activePill.isDemo ? <span>Demo lesson</span> : null}
               </div>
-              <h1>{activePill.title}</h1>
-              <p className="document-intro text-[15px]">
-                A little clarity for your next study session.
-              </p>
+              <PillMetadataEditor
+                key={`metadata-${activePill.id}`}
+                title={activePill.title}
+                description={activePill.description}
+                tags={activePill.tags}
+                onSave={handleSaveMetadata}
+              />
               <div
                 className="source-strip [margin:24px_0_32px] [&_button]:bg-surface [&_button]:border-0 [&_button]:min-h-[36px] [&_button]:rounded-lg [&_button]:[padding:8px_12px]"
                 aria-label="Sources in this Study Pill"
@@ -407,12 +527,39 @@ export function StudyShell() {
                 ))}
               </div>
               <StudyMaterials
-                key={activePill.id}
+                key={`materials-${activePill.id}`}
                 artifact={activePill.artifact}
                 selectedMaterials={activePill.selectedMaterials}
                 onCitation={setCitation}
                 onVisual={setVisual}
               />
+              <footer className="pill-footer">
+                <span>Ready to study</span>
+                {typeof activePill.processingDurationSeconds === 'number' ? (
+                  <span>
+                    Processing time · {formatDuration(activePill.processingDurationSeconds)}
+                  </span>
+                ) : null}
+                {!activePill.isDemo ? (
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    disabled={activePill.sources.some(
+                      (source) => source.kind !== 'youtube' && source.originalAvailable === false,
+                    )}
+                    title={
+                      activePill.sources.some(
+                        (source) => source.kind !== 'youtube' && source.originalAvailable === false,
+                      )
+                        ? 'The original source was removed, so this Pill cannot be regenerated.'
+                        : undefined
+                    }
+                    onClick={() => setRegenerateOpen(true)}
+                  >
+                    Regenerate Pill
+                  </button>
+                ) : null}
+              </footer>
             </article>
             <nav
               className="section-trail w-[180px] max-h-[calc(100dvh_-_140px)] overflow-y-auto [border-left:0] p-0 gap-[4px] [&_span]:text-xs [&_span]:mb-3 [&_a]:[padding:8px_10px] [&_a]:leading-[1.5] [&_a]:text-xs max-[1280px]:hidden"
@@ -433,27 +580,61 @@ export function StudyShell() {
         type="button"
         className="chat-trigger border-0 [box-shadow:0_4px_8px_oklch(0.24_0.04_148_/_0.18)] [padding:12px_20px]"
         onClick={() => setChatOpen(true)}
-        aria-label="Ask this Study Pill"
+        aria-label="Got a doubt? Ask this Study Pill"
       >
         <ChatCircleDotsIcon size={21} weight="fill" />
-        <span>Ask this Pill</span>
+        <span>Got a doubt? 🤔</span>
       </button>
 
       <CreatePillDialog
+        key={`create-${createOpen ? 'open' : 'closed'}`}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
       />
       <CitationDialog citation={citation} onClose={() => setCitation(null)} />
       <VisualDialog visual={visual} onClose={() => setVisual(null)} />
-      <SettingsDialog
+      <ReadingSettingsDialog
         open={settingsOpen}
         readingSize={readingSize}
+        readerBackground={readerBackground}
         onSize={setReadingSize}
+        onBackground={chooseReaderBackground}
         onClose={() => setSettingsOpen(false)}
       />
+      <FileLibraryDialog
+        key={`library-${fileLibraryOpen ? 'open' : 'closed'}`}
+        open={fileLibraryOpen}
+        onClose={() => setFileLibraryOpen(false)}
+      />
+      <AlertDialog.Root open={regenerateOpen} onOpenChange={setRegenerateOpen}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="dialog-overlay" />
+          <AlertDialog.Content className="radix-dialog-content">
+            <AlertDialog.Title className="radix-dialog-title">
+              Regenerate this Study Pill?
+            </AlertDialog.Title>
+            <AlertDialog.Description className="radix-dialog-description">
+              Noteesta will process the sources again and replace the generated notes and practice
+              questions. This can take a few minutes.
+            </AlertDialog.Description>
+            <div className="dialog-actions">
+              <AlertDialog.Cancel asChild>
+                <button type="button" className="secondary-button">
+                  Cancel
+                </button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <button type="button" className="primary-button" onClick={() => void handleRetry()}>
+                  Regenerate
+                </button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
       <ChatPanel
-        key={activePill.id}
+        key={`chat-${activePill.id}`}
         open={chatOpen}
         pill={activePill}
         onClose={() => setChatOpen(false)}
@@ -472,6 +653,14 @@ function ProcessingView({ pill }: { pill: StudyPill }) {
       <SparkleIcon size={30} weight="duotone" />
       <p>{pill.stage ?? 'Preparing your sources'}</p>
       <h1>{pill.title}</h1>
+      <ul className="processing-sources" aria-label="Sources being processed">
+        {pill.sources.map((source) => (
+          <li key={source.id}>
+            <SourceIcon kind={source.kind} size={15} />
+            <span>{source.name}</span>
+          </li>
+        ))}
+      </ul>
       <div className="progress-line" aria-label={`${pill.progress}% complete`}>
         <span style={{ width: `${pill.progress}%` }} />
       </div>
@@ -612,73 +801,6 @@ function VisualDialogContent({ visual, onClose }: { visual: VisualSpec; onClose:
   );
 }
 
-function SettingsDialog({
-  open,
-  readingSize,
-  onSize,
-  onClose,
-}: {
-  open: boolean;
-  readingSize: number;
-  onSize: (size: number) => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [dark, setDark] = useState(
-    () => typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark',
-  );
-  useDialog(ref, open, onClose);
-  function toggleTheme() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.dataset.theme = next ? 'dark' : 'light';
-    localStorage.setItem('noteesta-theme', next ? 'dark' : 'light');
-  }
-  return (
-    <dialog
-      ref={ref}
-      className="dialog border-0 [box-shadow:var(--shadow)] rounded-2xl settings-dialog"
-      aria-labelledby="settings-title"
-    >
-      <div className="dialog-header">
-        <div>
-          <p className="dialog-kicker">Reading preferences</p>
-          <h2 id="settings-title">Make it comfortable</h2>
-        </div>
-        <button
-          type="button"
-          className="icon-button min-w-[36px] min-h-[36px] rounded-[9px]"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <XIcon />
-        </button>
-      </div>
-      <div className="dialog-body settings-body">
-        <label htmlFor="reading-size" className="field gap-[9px] text-[13px] font-[550] min-w-0">
-          <span>Text size</span>
-          <input
-            id="reading-size"
-            type="range"
-            min="15"
-            max="21"
-            value={readingSize}
-            onChange={(event) => onSize(Number(event.target.value))}
-          />
-          <small>{readingSize}px</small>
-        </label>
-        <button type="button" className="theme-choice" onClick={toggleTheme}>
-          {dark ? <MoonIcon size={20} /> : <SunIcon size={20} />}
-          <span>
-            <strong>{dark ? 'Dark appearance' : 'Light appearance'}</strong>
-            <small>Switch the whole reading surface</small>
-          </span>
-        </button>
-      </div>
-    </dialog>
-  );
-}
-
 function ChatPanel({
   open,
   pill,
@@ -691,7 +813,13 @@ function ChatPanel({
   onCitation: (citation: Citation) => void;
 }) {
   const [question, setQuestion] = useState('');
-  const [turns, setTurns] = useState<Array<{ question: string; answer: ChatAnswer }> | null>(null);
+  const chatStorageKey = `noteesta-chat:${pill.id}`;
+  const serializedTurns = useSyncExternalStore(
+    useCallback((callback) => subscribeToChat(chatStorageKey, callback), [chatStorageKey]),
+    useCallback(() => readChatSnapshot(chatStorageKey), [chatStorageKey]),
+    () => '[]',
+  );
+  const turns = useMemo(() => parseChatTurns(serializedTurns), [serializedTurns]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pendingQuestion, setPendingQuestion] = useState('');
@@ -700,26 +828,10 @@ function ChatPanel({
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`noteesta-chat:${pill.id}`);
-      const parsed: unknown = saved ? JSON.parse(saved) : [];
-      setTurns(Array.isArray(parsed) ? parsed as Array<{ question: string; answer: ChatAnswer }> : []);
-    } catch {
-      setTurns([]);
-    }
-  }, [pill.id]);
-
-  useEffect(() => {
-    if (turns === null) return;
-    try {
-      localStorage.setItem(`noteesta-chat:${pill.id}`, JSON.stringify(turns));
-    } catch {
-      setError('This chat could not be saved in this browser.');
-    }
-  }, [pill.id, turns]);
-
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'end' });
+    transcriptEndRef.current?.scrollIntoView({
+      behavior: reduce ? 'auto' : 'smooth',
+      block: 'end',
+    });
   }, [loading, reduce, turns]);
 
   useEffect(() => {
@@ -728,6 +840,16 @@ function ChatPanel({
     inputRef.current?.focus();
     return () => trigger?.focus();
   }, [open]);
+
+  function saveTurns(nextTurns: Array<{ question: string; answer: ChatAnswer }>) {
+    try {
+      localStorage.setItem(chatStorageKey, JSON.stringify(nextTurns));
+      window.dispatchEvent(new Event(`noteesta-chat-change:${chatStorageKey}`));
+      setError('');
+    } catch {
+      setError('This chat could not be saved in this browser.');
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -746,7 +868,7 @@ function ChatPanel({
             grounded: true,
           }
         : await askPill(pill.id, submittedQuestion);
-      setTurns((current) => [...(current ?? []), { question: submittedQuestion, answer: result }]);
+      saveTurns([...turns, { question: submittedQuestion, answer: result }]);
     } catch (cause) {
       setQuestion(submittedQuestion);
       setError(cause instanceof Error ? cause.message : 'The question could not be answered.');
@@ -768,7 +890,7 @@ function ChatPanel({
       transition={{ duration: reduce ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
       aria-hidden={!open}
       inert={open ? undefined : true}
-      aria-label="Ask this Study Pill"
+      aria-label="Got a doubt? Ask this Study Pill"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
@@ -778,15 +900,15 @@ function ChatPanel({
           <p>
             <ChatCircleDotsIcon size={16} weight="duotone" /> Your study companion
           </p>
-          <h2>Ask this Pill</h2>
+          <h2>Got a doubt? 🤔</h2>
           <span className="block text-xs text-muted mt-1">Saved on this device</span>
         </div>
         <div className="flex flex-none items-center gap-1.5">
-          {turns?.length ? (
+          {turns.length ? (
             <button
               type="button"
               className="quiet-button flex min-h-[36px] flex-none items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-2 text-xs text-muted hover:bg-accent-soft"
-              onClick={() => setTurns([])}
+              onClick={() => saveTurns([])}
               aria-label="Clear chat history"
               title="Clear chat history"
             >
@@ -804,8 +926,14 @@ function ChatPanel({
           </button>
         </div>
       </div>
-      <div className="chat-body p-6 overflow-y-auto max-[761px]:p-5.5" role="log" aria-label="Chat history" aria-live="polite" aria-relevant="additions">
-        {turns?.length === 0 ? (
+      <div
+        className="chat-body p-6 overflow-y-auto max-[761px]:p-5.5"
+        role="log"
+        aria-label="Chat history"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
+        {turns.length === 0 ? (
           <div className="chat-intro mt-[20px] [&_>_svg]:block [&_>_svg]:[padding:12px] [&_>_svg]:[box-sizing:content-box] [&_>_svg]:rounded-xl [&_>_svg]:bg-accent-soft [&_>_svg]:mb-[18px] [&_strong]:text-lg [&_strong]:font-semibold [&_p]:text-sm [&_p]:leading-[1.7] [&_p]:[margin:10px_0_24px]">
             <ChatCircleDotsIcon size={28} weight="duotone" />
             <strong>Make the tricky bits click.</strong>
@@ -833,16 +961,25 @@ function ChatPanel({
             </div>
           </div>
         ) : null}
-        {turns?.map((turn, index) => (
-          <motion.div key={`${index}-${turn.question}`} className="chat-response" initial={false} animate={{ opacity: 1 }}>
+        {turns.map((turn) => (
+          <motion.div
+            key={`${turn.question}-${turn.answer.answer}`}
+            className="chat-response"
+            initial={false}
+            animate={{ opacity: 1 }}
+          >
             <p className="chat-question [margin:0_0_18px_auto] w-[fit-content] max-w-[90%] bg-accent-soft text-ink text-[13px] leading-[1.6] [padding:12px_15px] rounded-[12px_12px_3px_12px]">
               {turn.question}
             </p>
             <div className="chat-answer bg-transparent p-0 text-sm leading-[1.8] [overflow-wrap:anywhere] [&_button]:max-w-full [&_button]:text-left [&_button]:leading-[1.5] [&_button]:[padding:8px_10px] [&_button]:bg-surface [&_button]:text-accent [&_button]:text-[11px]">
               <p>{turn.answer.answer}</p>
               <div>
-                {turn.answer.citations.map((item, index) => (
-                  <button type="button" key={`${item.sourceId}-${item.locator}-${index}`} onClick={() => onCitation(item)}>
+                {turn.answer.citations.map((item) => (
+                  <button
+                    type="button"
+                    key={`${item.sourceId}-${item.locator}-${item.excerpt}`}
+                    onClick={() => onCitation(item)}
+                  >
                     {item.sourceName}, {item.locator}
                   </button>
                 ))}
@@ -855,7 +992,9 @@ function ChatPanel({
             className="chat-loading [margin:24px_0] text-muted text-xs [&_.document-skeleton]:mt-4 [&_.document-skeleton]:gap-[9px] [&_.document-skeleton_i]:h-[10px] [&_.document-skeleton_i:first-child]:h-[10px] [&_.document-skeleton_i:first-child]:w-[92%]"
             role="status"
           >
-            <p className="chat-question [margin:0_0_18px_auto] w-[fit-content] max-w-[90%] bg-accent-soft text-ink text-[13px] leading-[1.6] [padding:12px_15px] rounded-[12px_12px_3px_12px]">{pendingQuestion}</p>
+            <p className="chat-question [margin:0_0_18px_auto] w-[fit-content] max-w-[90%] bg-accent-soft text-ink text-[13px] leading-[1.6] [padding:12px_15px] rounded-[12px_12px_3px_12px]">
+              {pendingQuestion}
+            </p>
             <span>Finding the answer in your sources</span>
             <div className="document-skeleton">
               <i />
@@ -939,6 +1078,46 @@ function demoMarkdown(pill: StudyPill) {
     lines.push(`${index + 1}. ${source.name}, ${source.detail}`),
   );
   return new Blob([lines.join('\n')], { type: 'text/markdown' });
+}
+
+function subscribeToChat(key: string, onChange: () => void) {
+  const eventName = `noteesta-chat-change:${key}`;
+  window.addEventListener('storage', onChange);
+  window.addEventListener(eventName, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(eventName, onChange);
+  };
+}
+
+function readChatSnapshot(key: string) {
+  try {
+    return localStorage.getItem(key) ?? '[]';
+  } catch {
+    return '[]';
+  }
+}
+
+function parseChatTurns(serialized: string): Array<{ question: string; answer: ChatAnswer }> {
+  try {
+    const value: unknown = JSON.parse(serialized);
+    if (!Array.isArray(value)) return [];
+    return value.filter(
+      (turn): turn is { question: string; answer: ChatAnswer } =>
+        typeof turn?.question === 'string' &&
+        typeof turn?.answer?.answer === 'string' &&
+        Array.isArray(turn?.answer?.citations),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function formatDuration(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
 function slug(value: string) {

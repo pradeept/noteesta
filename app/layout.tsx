@@ -12,12 +12,14 @@ try {
   const saved = localStorage.getItem('noteesta-theme');
   const dark = saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.documentElement.dataset.palette = localStorage.getItem('noteesta-palette') || 'grove';
+  document.documentElement.dataset.readerBackground = localStorage.getItem('noteesta-reader-background') || 'canvas';
 } catch (_) {}
 `;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

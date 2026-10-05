@@ -27,6 +27,9 @@ async def database_dependency() -> AsyncIterator[AsyncDatabase]:
 async def ensure_indexes() -> None:
     database = get_database()
     await database.pills.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
+    await database.collections.create_index(
+        [("user_id", ASCENDING), ("name", ASCENDING)], unique=True
+    )
     await database.chunks.create_index(
         [("user_id", ASCENDING), ("pill_id", ASCENDING), ("source_id", ASCENDING)]
     )

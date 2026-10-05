@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from typing import Any
 
 from langchain_core.documents import Document
@@ -41,9 +42,16 @@ async def process_pill(pill_id: str) -> None:
 
     logger.info("Pill %s: worker started; opening database", pill_id)
     repository: PillRepository | None = None
+    pill = None
+    base_duration = 0
+    attempt_started = time.monotonic()
     try:
         database = get_database()
         repository = PillRepository(database)
+        pill = await repository.get(pill_id)
+        if pill is None:
+            raise ValueError(f"Unknown Study Pill: {pill_id}")
+        base_duration = pill.processing_duration_seconds or 0
         await repository.update(
             pill_id,
             status="processing",
@@ -51,9 +59,6 @@ async def process_pill(pill_id: str) -> None:
             progress=4,
             error=None,
         )
-        pill = await repository.get(pill_id)
-        if pill is None:
-            raise ValueError(f"Unknown Study Pill: {pill_id}")
 
         logger.info(
             "Pill %s: loaded %d source(s); initializing storage and language model",
@@ -184,13 +189,40 @@ async def process_pill(pill_id: str) -> None:
         }
         requested = sorted(selected - {MaterialKey.notes.value})
         materials_raw: dict[str, Any] = {}
+        mcq_target = _mcq_target(notes_raw) if MaterialKey.mcqs.value in requested else 0
         if requested:
             logger.info("Pill %s: generating materials: %s", pill_id, ", ".join(requested))
             materials_raw = await orchestrator.generate_materials(
                 requested_materials=json.dumps(requested),
                 study_context=json.dumps(pill.settings, ensure_ascii=False),
                 grounded_notes=grounded_notes,
+                mcq_target=mcq_target,
             )
+        mcqs = _mcqs(materials_raw.get("mcqs", []), source_lookup)
+        if mcq_target:
+            for attempt in range(2):
+                if len(mcqs) >= mcq_target:
+                    break
+                remaining = mcq_target - len(mcqs)
+                logger.info(
+                    "Pill %s: requesting %d more grounded MCQ(s), attempt %d/2",
+                    pill_id,
+                    remaining,
+                    attempt + 1,
+                )
+                supplement = await orchestrator.generate_materials(
+                    requested_materials='["mcqs"]',
+                    study_context=json.dumps(pill.settings, ensure_ascii=False),
+                    grounded_notes=grounded_notes,
+                    mcq_target=remaining,
+                    existing_mcqs=json.dumps([question.question for question in mcqs]),
+                )
+                mcqs = _merge_mcqs(mcqs, supplement.get("mcqs", []), source_lookup)
+            if len(mcqs) < mcq_target:
+                raise RuntimeError(
+                    f"Only {len(mcqs)} of {mcq_target} grounded multiple-choice questions "
+                    "could be generated. Retry this Study Pill."
+                )
 
         visuals: list[VisualSpec] = []
         try:
@@ -220,7 +252,7 @@ async def process_pill(pill_id: str) -> None:
             sections=sections,
             visuals=visuals,
             flashcards=_flashcards(materials_raw.get("flashcards", []), source_lookup),
-            mcqs=_mcqs(materials_raw.get("mcqs", []), source_lookup),
+            mcqs=mcqs[:mcq_target] if mcq_target else [],
             true_false=_true_false(materials_raw.get("trueFalse", []), source_lookup),
             roadmap=_roadmap(materials_raw.get("roadmap", [])),
         )
@@ -231,6 +263,9 @@ async def process_pill(pill_id: str) -> None:
             stage="Ready to study",
             progress=100,
             sources=sources_for_storage(pill.sources),
+            processing_duration_seconds=base_duration + max(
+                1, round(time.monotonic() - attempt_started)
+            ),
         )
     except Exception as error:
         logger.exception("Pill %s: generation failed: %s", pill_id, error)
@@ -241,6 +276,9 @@ async def process_pill(pill_id: str) -> None:
                     status="failed",
                     stage="Generation stopped",
                     error=str(error),
+                    processing_duration_seconds=base_duration + max(
+                        1, round(time.monotonic() - attempt_started)
+                    ),
                 )
             except Exception:
                 logger.exception("Pill %s: could not persist failed status", pill_id)
@@ -357,19 +395,70 @@ def _flashcards(rows: list[dict[str, Any]], sources: dict[str, Source]) -> list[
     ]
 
 
+def _mcq_target(notes: dict[str, Any]) -> int:
+    """Ask for five questions when the notes cover several ideas, otherwise two."""
+    sections = notes.get("sections", [])
+    word_count = sum(len(str(section.get("markdown", "")).split()) for section in sections)
+    return 5 if len(sections) >= 3 or word_count >= 180 else 2
+
+
 def _mcqs(rows: list[dict[str, Any]], sources: dict[str, Source]) -> list[Mcq]:
-    """Map validated multiple-choice rows into the API representation."""
-    return [
-        Mcq(
-            id=f"mcq-{index + 1}",
-            question=row["question"],
-            choices=row["choices"],
-            correct_index=row["correctIndex"],
-            explanation=row["explanation"],
-            citations=_citations(row.get("evidence", []), sources),
+    """Keep distinct questions with valid choices and source evidence."""
+    questions: list[Mcq] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        question = row.get("question")
+        choices = row.get("choices")
+        correct_index = row.get("correctIndex")
+        explanation = row.get("explanation")
+        if (
+            not isinstance(question, str)
+            or not question.strip()
+            or not isinstance(choices, list)
+            or len(choices) not in {3, 4}
+            or any(not isinstance(choice, str) or not choice.strip() for choice in choices)
+            or len({choice.strip().casefold() for choice in choices}) != len(choices)
+            or type(correct_index) is not int
+            or not 0 <= correct_index < len(choices)
+            or not isinstance(explanation, str)
+            or not explanation.strip()
+        ):
+            continue
+        key = question.strip().casefold()
+        if key in seen:
+            continue
+        citations = _citations(row.get("evidence", []), sources)
+        if not citations:
+            continue
+        seen.add(key)
+        questions.append(
+            Mcq(
+                id=f"mcq-{len(questions) + 1}",
+                question=question.strip(),
+                choices=[choice.strip() for choice in choices],
+                correct_index=correct_index,
+                explanation=explanation.strip(),
+                citations=citations,
+            )
         )
-        for index, row in enumerate(rows)
-    ]
+    return questions
+
+
+def _merge_mcqs(
+    existing: list[Mcq], rows: list[dict[str, Any]], sources: dict[str, Source]
+) -> list[Mcq]:
+    """Add supplemental questions without changing existing question IDs."""
+    seen = {question.question.casefold() for question in existing}
+    merged = list(existing)
+    for question in _mcqs(rows, sources):
+        if question.question.casefold() in seen:
+            continue
+        seen.add(question.question.casefold())
+        question.id = f"mcq-{len(merged) + 1}"
+        merged.append(question)
+    return merged
 
 
 def _true_false(rows: list[dict[str, Any]], sources: dict[str, Source]) -> list[TrueFalseQuestion]:
