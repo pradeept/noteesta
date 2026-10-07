@@ -250,7 +250,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
         className="empty-shell relative flex items-center justify-center min-h-dvh bg-canvas [padding:100px_40px] [&_>_.brand]:absolute [&_>_.brand]:top-[32px] [&_>_.brand]:left-[40px] [&_>_div:last-of-type]:w-[min(600px,_100%)] [&_>_div:last-of-type]:items-center [&_>_div:last-of-type]:pb-[0] [&_>_div:last-of-type]:text-center [&_h1]:text-[40px] [&_h1]:font-semibold [&_h1]:max-w-[none] [&_h1]:leading-[1.18] [&_>_div:last-of-type_>_p]:max-w-[52ch] [&_>_div:last-of-type_>_p]:[margin-inline:auto] [&_>_div:last-of-type_>_svg]:bg-accent-soft [&_>_div:last-of-type_>_svg]:rounded-[14px] [&_>_div:last-of-type_>_svg]:p-4.5 [&_>_div:last-of-type_>_svg]:[box-sizing:content-box] [&_>_div:last-of-type_>_svg]:mb-3 [&_.inline-error]:mt-6 [&_.inline-error]:max-w-[48ch] max-[761px]:[padding:100px_24px] max-[761px]:[&_>_.brand]:top-[24px] max-[761px]:[&_>_.brand]:left-[24px] max-[761px]:[&_h1]:text-[34px] loading-shell"
         aria-busy="true"
       >
-        <Brand />
+        <Brand href="/workspace" />
         <div>
           <PillIcon size={38} weight="duotone" />
           <h1>Opening your study space</h1>
@@ -269,7 +269,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
     const hasPills = pills.length > 0;
     return (
       <main className="empty-shell relative flex items-center justify-center min-h-dvh bg-canvas [padding:100px_40px] [&_>_.brand]:absolute [&_>_.brand]:top-[32px] [&_>_.brand]:left-[40px] [&_>_div:last-of-type]:w-[min(600px,_100%)] [&_>_div:last-of-type]:items-center [&_>_div:last-of-type]:pb-[0] [&_>_div:last-of-type]:text-center [&_h1]:text-[40px] [&_h1]:font-semibold [&_h1]:max-w-[none] [&_h1]:leading-[1.18] [&_>_div:last-of-type_>_p]:max-w-[52ch] [&_>_div:last-of-type_>_p]:[margin-inline:auto] [&_>_div:last-of-type_>_svg]:bg-accent-soft [&_>_div:last-of-type_>_svg]:rounded-[14px] [&_>_div:last-of-type_>_svg]:p-4.5 [&_>_div:last-of-type_>_svg]:[box-sizing:content-box] [&_>_div:last-of-type_>_svg]:mb-3 [&_.inline-error]:mt-6 [&_.inline-error]:max-w-[48ch] max-[761px]:[padding:100px_24px] max-[761px]:[&_>_.brand]:top-[24px] max-[761px]:[&_>_.brand]:left-[24px] max-[761px]:[&_h1]:text-[34px]">
-        <Brand />
+        <Brand href="/workspace" />
         <div>
           <PillIcon size={38} weight="duotone" />
           <h1>{hasPills ? 'Study Pill not found' : 'Start with one lesson'}</h1>
@@ -280,7 +280,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
           </p>
           <div className="empty-actions flex flex-wrap justify-center gap-3 items-center mt-4 [&_.primary-button]:mt-[0]">
             <Link
-              href="/"
+              href="/workspace"
               className="secondary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold"
             >
               View your library
@@ -334,7 +334,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
         aria-label="Study Pill library"
       >
         <div className="sidebar-head">
-          <Brand />
+          <Brand href="/workspace" />
           <button
             type="button"
             className="mobile-close icon-button min-w-[36px] min-h-[36px] rounded-[9px]"
@@ -427,7 +427,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
               <ListIcon size={20} />
             </button>
             <p>
-              <Link href="/">My Study Pills</Link>
+              <Link href="/workspace">My Study Pills</Link>
               <b>/</b>
               <span className="breadcrumb-current">{activePill.subject}</span>
             </p>

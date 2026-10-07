@@ -58,7 +58,9 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 
 The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
 
-The homepage at `/` shows Study Pills, collections, and the source library. Each Study Pill opens at `/pills/<id>`. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
+The public homepage at `/` explains Noteesta, and `/app` serves the read-only photosynthesis example without API calls. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in the root `.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Keep this setting off in public deployments until real authentication and authorization are in place. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
+
+The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The FastAPI service currently trusts a caller-provided user ID; do not expose it as a public service without replacing that mechanism with real authentication. The local Compose setup binds the API port to loopback for this reason.
 
 You can also build the API, worker, and frontend with `docker compose --env-file .env --env-file api/.env up --build`. Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `api/.env`. API and worker containers read `api/.env`; Next.js reads the root `.env`. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file.
 

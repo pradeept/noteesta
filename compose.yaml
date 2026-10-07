@@ -9,6 +9,10 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
         NEXT_PUBLIC_DEMO_USER_ID: ${NEXT_PUBLIC_DEMO_USER_ID:-demo-user}
         NEXT_PUBLIC_ENABLE_DEMO_DATA: ${NEXT_PUBLIC_ENABLE_DEMO_DATA:-true}
+        NOTEESTA_SITE_URL: ${NOTEESTA_SITE_URL:-https://noteesta.com}
+    environment:
+      NOTEESTA_SITE_URL: ${NOTEESTA_SITE_URL:-https://noteesta.com}
+      NOTEESTA_ENABLE_WORKSPACE: ${NOTEESTA_ENABLE_WORKSPACE:-false}
     ports:
       - "3000:3000"
     depends_on:
@@ -29,7 +33,7 @@ services:
       S3_ENDPOINT_URL: http://seaweedfs:8333
       OLLAMA_BASE_URL: ${OLLAMA_DOCKER_BASE_URL:-http://host.docker.internal:11434}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
