@@ -1,0 +1,3 @@
+# The public Vercel project deploys only the Next.js site.
+# Keep the FastAPI app for local development and a separate backend deployment.
+api
