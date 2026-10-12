@@ -18,5 +18,5 @@ export default defineConfig([
     },
   },
   prettier,
-  globalIgnores(['.next/**', 'coverage/**', 'api/**', 'node_modules/**']),
+  globalIgnores(['.next/**', 'coverage/**', 'node_modules/**']),
 ]);

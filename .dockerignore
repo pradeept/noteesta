@@ -1,7 +1,11 @@
 .git
+.env*
+**/.env*
 .next
+**/.next
 node_modules
-api/.venv
+**/node_modules
+apps/api/.venv
 .promptfoo
 docs
 *.log
