@@ -23,6 +23,7 @@ from noteesta_api.schemas import (
     Source,
     StudyPill,
     StudyPillUpdate,
+    ThreeDCode,
 )
 from noteesta_api.services.chat import answer_question
 from noteesta_api.services.exporting import build_export
@@ -259,6 +260,26 @@ async def get_study_pill(
             if visual.asset_key:
                 visual.asset_url = await storage.presigned_url(visual.asset_key)
     return pill
+
+
+@router.get("/{pill_id}/three-d", response_model=ThreeDCode)
+async def get_three_d_artifact(
+    pill_id: str,
+    user_id: Annotated[str, Depends(current_user_id)],
+    database: Annotated[AsyncDatabase, Depends(database_dependency)],
+) -> ThreeDCode:
+    repository = PillRepository(database)
+    pill = await repository.get(pill_id, user_id)
+    if pill is None:
+        raise HTTPException(status_code=404, detail="Study Pill not found.")
+    if pill.status != "ready":
+        raise HTTPException(status_code=409, detail="This Study Pill is not ready.")
+    if not pill.artifact or not pill.artifact.three_d or pill.artifact.three_d.status != "ready":
+        raise HTTPException(status_code=404, detail="This Study Pill has no 3D model.")
+    code = await repository.get_three_d(pill_id, user_id)
+    if code is None:
+        raise HTTPException(status_code=404, detail="This Study Pill has no 3D model.")
+    return ThreeDCode(javascript=code["javascript"], version=code["version"])
 
 
 @router.post("/{pill_id}/chat", response_model=ChatAnswer)

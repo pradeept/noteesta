@@ -17,6 +17,11 @@ const optionalMaterials: Array<{ value: MaterialKey; label: string; description:
   { value: 'mcqs', label: 'Multiple choice', description: 'Questions with explanations' },
   { value: 'trueFalse', label: 'True or false', description: 'Fast misconception checks' },
   { value: 'roadmap', label: 'Study roadmap', description: 'A sensible learning order' },
+  {
+    value: 'threeD',
+    label: 'Interactive 3D',
+    description: 'A cited spatial model when sources support one',
+  },
 ];
 
 export function CreatePillDialog({

@@ -672,6 +672,105 @@
     color: var(--on-accent);
   }
 
+  .three-d-material {
+    display: grid;
+    gap: 12px;
+  }
+
+  .three-d-material h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(22px, 2.5vw, 30px);
+  }
+
+  .three-d-material > p {
+    margin: 0;
+    max-width: 68ch;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .three-d-viewer {
+    overflow: hidden;
+    margin-top: 22px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+
+  .three-d-frame-wrap {
+    position: relative;
+    height: clamp(300px, 42vw, 490px);
+    background: #f5f3ed;
+  }
+
+  .three-d-frame-wrap iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .three-d-frame-status {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 24px;
+    background: #f5f3ed;
+    color: #354739;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  .three-d-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 15px;
+  }
+
+  .three-d-controls p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .three-d-controls > div {
+    display: flex;
+    flex: none;
+    gap: 6px;
+  }
+
+  .three-d-controls button {
+    min-height: 36px;
+    min-width: 36px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 6px 10px;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .three-d-controls button:hover,
+  .three-d-controls button:focus-visible {
+    border-color: var(--accent);
+    outline-color: var(--accent);
+  }
+
+  @media (max-width: 640px) {
+    .three-d-controls {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+
   .visual-block {
     overflow: hidden;
     margin: 25px 0;

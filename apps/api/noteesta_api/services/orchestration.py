@@ -6,6 +6,7 @@ from noteesta_api.llm import (
     MATERIALS_SCHEMA,
     NOTES_SCHEMA,
     SECTION_SCHEMA,
+    THREE_D_HANDOFF_SCHEMA,
     VISUAL_SCHEMA,
     OllamaClient,
 )
@@ -93,4 +94,13 @@ class StudyPillOrchestrator:
             render_prompt("visual-spec", grounded_notes=grounded_notes),
             VISUAL_SCHEMA,
             num_predict=2200,
+        )
+
+    async def generate_three_d_handoff(self, *, grounded_notes: str) -> dict[str, Any]:
+        """Decide whether a cited spatial model is useful and describe only supported parts."""
+
+        return await self.client.generate_json(
+            render_prompt("three-d-handoff", grounded_notes=grounded_notes),
+            THREE_D_HANDOFF_SCHEMA,
+            num_predict=2400,
         )

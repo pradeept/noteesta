@@ -529,6 +529,8 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
               <StudyMaterials
                 key={`materials-${activePill.id}`}
                 artifact={activePill.artifact}
+                pillId={activePill.id}
+                isDemo={Boolean(activePill.isDemo)}
                 selectedMaterials={activePill.selectedMaterials}
                 onCitation={setCitation}
                 onVisual={setVisual}

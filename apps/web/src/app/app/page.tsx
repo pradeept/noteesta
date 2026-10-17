@@ -3,13 +3,14 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SiteFooter } from '@/components/site-footer';
-import { demoPill } from '@/lib/fixtures';
+import { ThreeDViewer } from '@/components/three-d-viewer';
+import { demoPill, demoThreeDJavaScript } from '@/lib/fixtures';
 import type { Citation } from '@/lib/types';
 
 export const metadata: Metadata = {
   title: 'Example Study Pill — Photosynthesis | Noteesta',
   description:
-    'Explore a read-only Noteesta Study Pill with source-linked photosynthesis notes, an energy-flow visual, flashcards, and practice questions.',
+    'Explore a read-only Study Pill with cited photosynthesis notes, an interactive 3D chloroplast, and practice questions.',
   alternates: { canonical: '/app', types: { 'text/markdown': '/llm' } },
   openGraph: {
     title: 'Explore a Noteesta Study Pill',
@@ -67,7 +68,7 @@ export default function PublicDemo() {
           <div className="demo-opening-note">
             <strong>This is a sample Study Pill.</strong>
             <span>
-              You can browse its notes, references, visual, and revision material. Nothing here
+              You can browse its notes, references, visuals, and revision material. Nothing here
               uploads, saves, or calls an API.
             </span>
           </div>
@@ -79,6 +80,7 @@ export default function PublicDemo() {
             <a href="#demo-sources">Selected sources</a>
             <a href="#demo-notes">The notes</a>
             <a href="#demo-visual">A visual explanation</a>
+            <a href="#demo-3d">Interactive 3D</a>
             <a href="#demo-practice">Practice and roadmap</a>
             <span>Biology · Example content</span>
           </aside>
@@ -165,6 +167,21 @@ export default function PublicDemo() {
                 <CitationLinks citations={artifact.visuals[0].citations} />
               ) : null}
             </section>
+
+            {artifact.threeD?.status === 'ready' ? (
+              <section id="demo-3d" className="demo-visual" aria-labelledby="demo-3d-title">
+                <div className="demo-section-head">
+                  <span>Explore the structure</span>
+                  <h2 id="demo-3d-title">{artifact.threeD.title}</h2>
+                  <p>{artifact.threeD.description}</p>
+                </div>
+                <ThreeDViewer
+                  javascript={demoThreeDJavaScript}
+                  title={artifact.threeD.title ?? 'Chloroplast model'}
+                />
+                <CitationLinks citations={artifact.threeD.citations} />
+              </section>
+            ) : null}
 
             <section
               id="demo-practice"

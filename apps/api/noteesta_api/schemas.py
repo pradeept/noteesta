@@ -25,6 +25,7 @@ class MaterialKey(StrEnum):
     mcqs = "mcqs"
     true_false = "trueFalse"
     roadmap = "roadmap"
+    three_d = "threeD"
 
 
 class Citation(ApiModel):
@@ -95,6 +96,19 @@ class VisualSpec(ApiModel):
     asset_key: str | None = Field(default=None, exclude=True)
 
 
+class ThreeDMetadata(ApiModel):
+    status: Literal["ready", "unavailable"]
+    title: str | None = None
+    description: str | None = None
+    citations: list[Citation] = Field(default_factory=list)
+    reason: str | None = None
+
+
+class ThreeDCode(ApiModel):
+    javascript: str
+    version: int = 1
+
+
 class Flashcard(ApiModel):
     id: str
     front: str
@@ -140,6 +154,7 @@ class StudyArtifact(ApiModel):
     mcqs: list[Mcq] = Field(default_factory=list)
     true_false: list[TrueFalseQuestion] = Field(default_factory=list)
     roadmap: list[RoadmapItem] = Field(default_factory=list)
+    three_d: ThreeDMetadata | None = None
 
 
 class StudyPill(ApiModel):

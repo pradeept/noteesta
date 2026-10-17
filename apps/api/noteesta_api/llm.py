@@ -140,6 +140,42 @@ VISUAL_SCHEMA: dict[str, Any] = {
     "required": ["title", "description", "kind", "nodes", "edges", "data", "evidence"],
 }
 
+
+THREE_D_HANDOFF_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "suitable": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "parts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "appearance": {"type": "string"},
+                    "relationship": {"type": "string"},
+                },
+                "required": ["name", "appearance", "relationship"],
+            },
+        },
+        "evidence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sourceId": {"type": "string"},
+                    "locator": {"type": "string"},
+                    "excerpt": {"type": "string"},
+                },
+                "required": ["sourceId", "locator", "excerpt"],
+            },
+        },
+    },
+    "required": ["suitable", "reason", "title", "description", "parts", "evidence"],
+}
+
 CHAT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {

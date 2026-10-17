@@ -6,6 +6,7 @@ from typing import Any
 
 from langchain_core.documents import Document
 
+from noteesta_api.config import get_settings
 from noteesta_api.database import get_database
 from noteesta_api.repository import (
     PillRepository,
@@ -21,6 +22,7 @@ from noteesta_api.schemas import (
     RoadmapItem,
     Source,
     StudyArtifact,
+    ThreeDMetadata,
     TrueFalseQuestion,
     VisualSpec,
 )
@@ -32,6 +34,7 @@ from noteesta_api.services.extraction import (
 from noteesta_api.services.orchestration import StudyPillOrchestrator
 from noteesta_api.services.rag import StudyPillRetriever
 from noteesta_api.services.rendering import render_visual
+from noteesta_api.services.three_d import prepare_three_d
 from noteesta_api.storage import get_storage
 
 logger = logging.getLogger(__name__)
@@ -187,7 +190,7 @@ async def process_pill(pill_id: str) -> None:
             item.value if isinstance(item, MaterialKey) else str(item)
             for item in pill.selected_materials
         }
-        requested = sorted(selected - {MaterialKey.notes.value})
+        requested = sorted(selected - {MaterialKey.notes.value, MaterialKey.three_d.value})
         materials_raw: dict[str, Any] = {}
         mcq_target = _mcq_target(notes_raw) if MaterialKey.mcqs.value in requested else 0
         if requested:
@@ -247,6 +250,32 @@ async def process_pill(pill_id: str) -> None:
         except Exception:
             logger.exception("Visual generation failed for pill %s; notes remain usable", pill_id)
 
+        three_d: ThreeDMetadata | None = None
+        if MaterialKey.three_d.value in selected:
+            await repository.update(pill_id, stage="Creating an interactive 3D model", progress=92)
+            await repository.delete_three_d(pill.id, pill.user_id)
+            try:
+                three_d, javascript, handoff = await prepare_three_d(
+                    orchestrator, grounded_notes, source_lookup
+                )
+                if javascript and handoff:
+                    await repository.save_three_d(
+                        pill, javascript, handoff, get_settings().openai_3d_model
+                    )
+            except Exception:
+                logger.exception(
+                    "3D generation failed for pill %s; other materials remain usable", pill_id
+                )
+                three_d = ThreeDMetadata(
+                    status="unavailable",
+                    reason=(
+                        "The 3D model could not be generated. "
+                        "Regenerate this Pill to try again."
+                    ),
+                )
+        else:
+            await repository.delete_three_d(pill.id, pill.user_id)
+
         artifact = StudyArtifact(
             summary=notes_raw["summary"],
             sections=sections,
@@ -255,6 +284,7 @@ async def process_pill(pill_id: str) -> None:
             mcqs=mcqs[:mcq_target] if mcq_target else [],
             true_false=_true_false(materials_raw.get("trueFalse", []), source_lookup),
             roadmap=_roadmap(materials_raw.get("roadmap", [])),
+            three_d=three_d,
         )
         await repository.update(
             pill_id,

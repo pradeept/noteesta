@@ -5,6 +5,7 @@ import type {
   CreatePillInput,
   LibraryEntry,
   StudyPill,
+  ThreeDCode,
 } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
@@ -103,6 +104,10 @@ export function libraryDownloadUrl(sourceId: string): string {
 
 export async function getPill(id: string): Promise<StudyPill> {
   return request<StudyPill>(`/pills/${id}`);
+}
+
+export async function getThreeDCode(id: string): Promise<ThreeDCode> {
+  return request<ThreeDCode>(`/pills/${id}/three-d`);
 }
 
 export async function createPill(input: CreatePillInput): Promise<StudyPill> {

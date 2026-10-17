@@ -5,7 +5,7 @@ import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from pymongo.errors import PyMongoError
 
-from noteesta_api.database import get_database
+from noteesta_api.database import close_database, get_database
 from noteesta_api.repository import PillRepository
 from noteesta_api.services.pipeline import process_pill
 from workers.celery_app import celery_app
@@ -19,6 +19,41 @@ RETRYABLE_ERRORS = (
     BotoCoreError,
     ClientError,
 )
+
+
+async def _process_pill_in_worker(self, pill_id: str) -> None:
+    """Keep all task database work on one loop and close its client with that loop."""
+
+    try:
+        await process_pill(pill_id)
+    except RETRYABLE_ERRORS:
+        will_retry = self.request.retries < self.max_retries
+        logger.exception(
+            "Pill %s: temporary dependency failure on attempt %d/%d%s",
+            pill_id,
+            self.request.retries + 1,
+            self.max_retries + 1,
+            "; scheduling a retry" if will_retry else "; retries exhausted",
+        )
+        if will_retry:
+            try:
+                await PillRepository(get_database()).update(
+                    pill_id,
+                    status="queued",
+                    stage=(
+                        "Temporary service issue; retrying "
+                        f"(attempt {self.request.retries + 2} of {self.max_retries + 1})"
+                    ),
+                    error=None,
+                )
+            except Exception:
+                logger.exception("Pill %s: could not record automatic retry status", pill_id)
+        raise
+    except Exception:
+        logger.exception("Pill %s: task failed with a non-retryable error", pill_id)
+        raise
+    finally:
+        await close_database()
 
 
 @celery_app.task(
@@ -37,34 +72,5 @@ def process_pill_task(self, pill_id: str) -> None:
         self.request.retries + 1,
         self.max_retries + 1,
     )
-    try:
-        asyncio.run(process_pill(pill_id))
-    except RETRYABLE_ERRORS:
-        will_retry = self.request.retries < self.max_retries
-        logger.exception(
-            "Pill %s: temporary dependency failure on attempt %d/%d%s",
-            pill_id,
-            self.request.retries + 1,
-            self.max_retries + 1,
-            "; scheduling a retry" if will_retry else "; retries exhausted",
-        )
-        if will_retry:
-            try:
-                asyncio.run(
-                    PillRepository(get_database()).update(
-                        pill_id,
-                        status="queued",
-                        stage=(
-                            "Temporary service issue; retrying "
-                            f"(attempt {self.request.retries + 2} of {self.max_retries + 1})"
-                        ),
-                        error=None,
-                    )
-                )
-            except Exception:
-                logger.exception("Pill %s: could not record automatic retry status", pill_id)
-        raise
-    except Exception:
-        logger.exception("Pill %s: task failed with a non-retryable error", pill_id)
-        raise
+    asyncio.run(_process_pill_in_worker(self, pill_id))
     logger.info("Pill %s: task completed", pill_id)

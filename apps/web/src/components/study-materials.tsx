@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CitationButton } from '@/components/citation-button';
 import { FlowVisual } from '@/components/flow-visual';
+import { ThreeDMaterial } from '@/components/three-d-material';
 import type { Citation, MaterialKey, StudyArtifact, VisualSpec } from '@/lib/types';
 
 const tabLabels: Record<MaterialKey, string> = {
@@ -15,15 +16,20 @@ const tabLabels: Record<MaterialKey, string> = {
   mcqs: 'Multiple choice',
   trueFalse: 'True or false',
   roadmap: 'Roadmap',
+  threeD: 'Interactive 3D',
 };
 
 export function StudyMaterials({
   artifact,
+  pillId,
+  isDemo,
   selectedMaterials,
   onCitation,
   onVisual,
 }: {
   artifact: StudyArtifact;
+  pillId: string;
+  isDemo: boolean;
   selectedMaterials: MaterialKey[];
   onCitation: (citation: Citation) => void;
   onVisual: (visual: VisualSpec) => void;
@@ -84,6 +90,14 @@ export function StudyMaterials({
                 document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
               });
             }}
+          />
+        ) : null}
+        {active === 'threeD' ? (
+          <ThreeDMaterial
+            pillId={pillId}
+            metadata={artifact.threeD}
+            isDemo={isDemo}
+            onCitation={onCitation}
           />
         ) : null}
       </motion.div>

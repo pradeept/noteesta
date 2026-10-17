@@ -13,6 +13,7 @@ describe('demo Study Pill', () => {
       ...(artifact?.flashcards ?? []),
       ...(artifact?.mcqs ?? []),
       ...(artifact?.trueFalse ?? []),
+      ...(artifact?.threeD ? [artifact.threeD] : []),
     ];
 
     for (const item of citedItems) {
@@ -28,6 +29,7 @@ describe('demo Study Pill', () => {
       'mcqs',
       'trueFalse',
       'roadmap',
+      'threeD',
     ]);
   });
 });

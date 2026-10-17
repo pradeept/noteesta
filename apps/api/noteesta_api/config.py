@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     ollama_timeout_seconds: float = 300
     ollama_num_ctx: int = 32768
 
+    openai_api_key: str | None = None
+    openai_3d_model: str = "gpt-5.4"
+
     whisper_model: str = "small"
     whisper_device: str = "auto"
     chunk_size: int = 1800

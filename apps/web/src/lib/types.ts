@@ -1,4 +1,4 @@
-export type MaterialKey = 'notes' | 'flashcards' | 'mcqs' | 'trueFalse' | 'roadmap';
+export type MaterialKey = 'notes' | 'flashcards' | 'mcqs' | 'trueFalse' | 'roadmap' | 'threeD';
 
 export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube';
 
@@ -62,6 +62,19 @@ export interface VisualSpec {
   assetUrl?: string;
 }
 
+export interface ThreeDMetadata {
+  status: 'ready' | 'unavailable';
+  title?: string | null;
+  description?: string | null;
+  citations: Citation[];
+  reason?: string | null;
+}
+
+export interface ThreeDCode {
+  javascript: string;
+  version: number;
+}
+
 export interface Flashcard {
   id: string;
   front: string;
@@ -101,6 +114,7 @@ export interface StudyArtifact {
   mcqs: Mcq[];
   trueFalse: TrueFalseQuestion[];
   roadmap: RoadmapItem[];
+  threeD?: ThreeDMetadata | null;
 }
 
 export interface StudyPill {

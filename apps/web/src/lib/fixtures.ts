@@ -1,5 +1,35 @@
 import type { Citation, StudyPill } from '@/lib/types';
 
+export const demoThreeDJavaScript = `function buildArtifact(THREE, scene) {
+  const shell = new THREE.Mesh(
+    new THREE.SphereGeometry(2, 40, 28),
+    new THREE.MeshPhongMaterial({ color: 0x82a766, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
+  );
+  shell.scale.set(1.35, 0.68, 0.78);
+  scene.add(shell);
+  const inner = new THREE.Mesh(
+    new THREE.SphereGeometry(1.96, 40, 28),
+    new THREE.MeshPhongMaterial({ color: 0xb5ce89, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })
+  );
+  inner.scale.set(1.35, 0.68, 0.78);
+  scene.add(inner);
+  const material = new THREE.MeshStandardMaterial({ color: 0x426c42, roughness: 0.58, metalness: 0.05 });
+  for (const x of [-1.25, 0, 1.25]) {
+    for (let layer = 0; layer < 6; layer++) {
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.075, 28), material);
+      disc.position.set(x, -0.29 + layer * 0.12, x === 0 ? 0.2 : -0.08);
+      scene.add(disc);
+    }
+  }
+  return {
+    cameraPosition: [4.5, 2.7, 6.4],
+    labels: [
+      { text: 'Thylakoid stacks', position: [0, 0.65, 0.2] },
+      { text: 'Stroma', position: [1.35, -0.7, 0.45] }
+    ]
+  };
+}`;
+
 const lectureCitation: Citation = {
   sourceId: 'lecture-04',
   sourceName: 'Lecture 04: Photosynthesis',
@@ -33,7 +63,7 @@ export const demoPill: StudyPill = {
   collectionId: undefined,
   status: 'ready',
   progress: 100,
-  selectedMaterials: ['notes', 'flashcards', 'mcqs', 'trueFalse', 'roadmap'],
+  selectedMaterials: ['notes', 'flashcards', 'mcqs', 'trueFalse', 'roadmap', 'threeD'],
   updatedAt: '2026-10-03T08:30:00.000Z',
   processingDurationSeconds: 94,
   isDemo: true,
@@ -166,5 +196,12 @@ export const demoPill: StudyPill = {
         sectionId: 'remember',
       },
     ],
+    threeD: {
+      status: 'ready',
+      title: 'Inside a chloroplast',
+      description:
+        'A schematic chloroplast showing thylakoid stacks surrounded by stroma. Shape, color, and scale are illustrative.',
+      citations: [lectureCitation, slidesCitation],
+    },
   },
 };

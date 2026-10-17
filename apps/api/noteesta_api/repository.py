@@ -68,3 +68,29 @@ class PillRepository:
     async def replace(self, pill: StudyPill) -> StudyPill:
         await self.database.pills.replace_one({"_id": pill.id}, _serialize(pill), upsert=True)
         return pill
+
+    async def save_three_d(
+        self, pill: StudyPill, javascript: str, handoff: dict[str, Any], model: str
+    ) -> None:
+        await self.database.pill_three_d.replace_one(
+            {"_id": pill.id},
+            {
+                "_id": pill.id,
+                "user_id": pill.user_id,
+                "javascript": javascript,
+                "handoff": handoff,
+                "model": model,
+                "version": 1,
+                "generated_at": datetime.now(UTC),
+            },
+            upsert=True,
+        )
+
+    async def get_three_d(self, pill_id: str, user_id: str) -> dict[str, Any] | None:
+        return await self.database.pill_three_d.find_one(
+            {"_id": pill_id, "user_id": user_id},
+            {"javascript": 1, "version": 1},
+        )
+
+    async def delete_three_d(self, pill_id: str, user_id: str) -> None:
+        await self.database.pill_three_d.delete_one({"_id": pill_id, "user_id": user_id})
