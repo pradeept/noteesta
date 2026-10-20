@@ -5,13 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy
 
-WORKDIR /workspace/api
-COPY api/pyproject.toml api/uv.lock ./
+WORKDIR /workspace/apps/api
+COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY api/noteesta_api ./noteesta_api
-COPY api/workers ./workers
-COPY api/evals/prompts ./evals/prompts
+COPY apps/api/noteesta_api ./noteesta_api
+COPY apps/api/workers ./workers
+COPY apps/api/evals/prompts ./evals/prompts
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8000

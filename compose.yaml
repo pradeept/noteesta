@@ -24,10 +24,10 @@ services:
       context: .
       dockerfile: Dockerfile.api
     env_file:
-      - path: api/.env
+      - path: apps/api/.env
         required: false
     environment:
-      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in api/.env}
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in apps/api/.env}
       MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-vector_index}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://seaweedfs:8333
@@ -69,10 +69,10 @@ services:
         "--concurrency=1",
       ]
     env_file:
-      - path: api/.env
+      - path: apps/api/.env
         required: false
     environment:
-      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in api/.env}
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in apps/api/.env}
       MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-vector_index}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://seaweedfs:8333
