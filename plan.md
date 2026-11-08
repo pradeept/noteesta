@@ -1,5 +1,7 @@
 # Noteesta — Hackathon Plan
 
+This is the original product proposal, retained for design context. It includes planned behavior that is not implemented, such as selecting existing library files and analyzing video frames. Use the [README](README.md), [backend guide](docs/backend.md), and [current architecture](docs/system-architecture.md) for setup and implemented behavior. The current frontend uses Radix UI, and generation supports several providers with a separate optional 3D path.
+
 ## Product vision
 
 **Noteesta turns one or more learning sources into a Study Pill containing portable Markdown notes with generated charts and visuals. Roadmaps, flashcards, MCQs, and true-or-false questions are optional extras generated alongside the notes.**
@@ -164,7 +166,7 @@ For every MCQ, require:
 
 ## Implementation toolchain
 
-- Manage the Next.js frontend exclusively with **pnpm**. Commit `pnpm-lock.yaml`, use `pnpm dev`, `pnpm build`, and `pnpm test`, and use pnpm in the frontend container build.
-- Manage the Python backend exclusively with **uv**. The backend is a uv project rooted at `apps/api/`, with `fastapi[standard]` as its web framework dependency. Use `uv sync`, `uv run fastapi dev`, and `uv run pytest`.
-- Run every required LLM job through the shared prompt files in `prompts/` and evaluate those jobs with Promptfoo against the configured local Ollama model.
+- Manage the Next.js frontend exclusively with **pnpm**. Commit `pnpm-lock.yaml`; from the repository root use `pnpm dev:web`, `pnpm build:web`, and `pnpm test`. Use pnpm in the frontend container build.
+- Manage the Python backend exclusively with **uv**. The backend is a uv project rooted at `apps/api/`, with `fastapi[standard]` as its web framework dependency. From that directory use `uv sync --extra dev`, `uv run fastapi dev main.py`, and `uv run pytest`.
+- Run structured generation through the shared prompt files in `apps/api/evals/prompts/` and evaluate the core prompt jobs with Promptfoo against the configured local Ollama model.
 - Keep Promptfoo configuration, providers, and assertions with the FastAPI project under `apps/api/evals/`; implement the provider and assertions in Python. Promptfoo's Node CLI may be invoked through `pnpm dlx`, but it must not be a dependency or script of the Next.js package.

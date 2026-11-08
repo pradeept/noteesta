@@ -22,11 +22,11 @@ Open [index.html](index.html) directly in a current browser. No build, backend, 
 
 The photosynthesis content and source excerpts are fixtures. The generation flow demonstrates controls and selected extras, but always loads the same sample lesson and labels its fixture sources. Uploaded files are not read, uploaded, transcribed, or used to generate content. User-selected source subsets are not applied to the fixture lesson. There is no authentication, persistence, live AI, source playback, or chat implementation in these prototypes.
 
-The Markdown download is a representative export of the fixture, not a general Markdown serializer. ZIP generation is an uncompressed prototype implementation. Production export should use a maintained archive library.
+The Markdown download is a representative export of the fixture, not a general Markdown serializer. ZIP generation is an uncompressed prototype implementation. The current FastAPI implementation uses Python's `zipfile` module with compression; see the [architecture guide](../system-architecture.md).
 
 ## Design rationale
 
-The frontend-design and Impeccable product guidance informed readable line lengths, restrained chrome, native controls, consistent interaction states, and accessible preview behavior. These are deliberately different layout explorations, not just color themes. No final brand direction has been selected.
+The frontend-design and Impeccable product guidance informed readable line lengths, restrained chrome, native controls, consistent interaction states, and accessible preview behavior. These were different layout explorations, not just color themes. The current Next.js frontend takes its layout and color direction from Grove.
 
 Geist Study draws on the [official Geist reference](https://vercel.com/geist/introduction) and [Geist typeface](https://vercel.com/font). It is an independent interpretation, not an official component implementation. To remain offline and dependency-free, it uses a locally installed Geist font when present, then Arial. Folio uses the system Georgia serif; Grove uses the shared sans-serif stack.
 

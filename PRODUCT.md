@@ -10,11 +10,11 @@ Students combining class recordings, videos, handwritten notes, and documents in
 
 ## Product purpose
 
-Generate well-structured Markdown notes with source-supported charts and visuals from one or more selected resources. Generate roadmap, flashcards, MCQs, and true-or-false alongside notes only when selected. Sources and retrieval remain isolated per user and Pill.
+Generate well-structured Markdown notes with source-supported charts and visuals from one or more selected resources. Generate roadmap, flashcards, MCQs, true-or-false, and interactive 3D alongside notes only when selected. Retrieval is scoped by the development user identity and Pill; real authentication is not yet implemented. The public example is read-only, while the live workspace requires `NOTEESTA_ENABLE_WORKSPACE=true`.
 
 ## Brand personality
 
-Calm, intuitive, friendly. Notes are the center of the experience. Turbo.ai and Notion inform the reading experience; Geist is one requested prototype direction, not an adopted final design system.
+Calm, intuitive, friendly. Notes are the center of the experience. Turbo.ai and Notion inform the reading experience. The current frontend follows the Grove prototype's layout and color direction; Geist is an alternative prototype rather than the adopted design system.
 
 ## Anti-references
 

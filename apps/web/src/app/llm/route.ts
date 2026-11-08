@@ -19,7 +19,7 @@ export function GET() {
 Read this page for product context. Open the sample Study Pill to inspect what visitors can see. Use the source repository for implementation details.
 
 - [Public landing page](${siteUrl}/): The purpose, student use case, current product, and future direction.
-- [Read-only Study Pill example](${siteUrl}/app): A complete photosynthesis note with sources, a flow visual, flashcards, and practice questions. This page makes no API calls and accepts no uploads or saved input.
+- [Read-only Study Pill example](${siteUrl}/app): A complete photosynthesis note with sources, a flow visual, an interactive 3D chloroplast, flashcards, and practice questions. This page makes no API calls and accepts no uploads or saved input.
 - [Noteesta demo video](https://youtu.be/_2Bphk7JLCk): The founder's YouTube video, titled "Noteesta - Hacktoberfest 2026".
 - [Source repository](https://github.com/pradeept/noteesta): Implementation and setup details.
 
@@ -32,12 +32,13 @@ A student may have a lecture recording, a PDF of slides, and photos of handwritt
 - Study Pills from supported recordings, documents, images, video, and YouTube links with accessible captions.
 - Structured notes with source references and controlled visuals such as flows.
 - Optional flashcards, multiple-choice questions, true-or-false questions, and a study roadmap.
+- Optional interactive 3D concept models using Three.js. The development workspace generates cited scenes when the material supports a spatial explanation; the public example includes a bundled chloroplast scene.
 - A source-scoped question feature and portable export in the development app. These are not connected to the public read-only demo.
 
 ## Planned directions
 
 - Summaries of website links, including library documentation.
-- Interactive 3D concept artifacts using Three.js and quick visual prototypes.
+- Quick visual prototypes and broader interactive learning tools.
 - Longer-term exploration of immersive learning and VR.
 
 The broader goal is to help people understand and keep pace with a growing body of knowledge.
@@ -62,7 +63,7 @@ Flashcard: ${artifact?.flashcards[0]?.front ?? ''} Answer: ${artifact?.flashcard
 
 ## Limits and availability
 
-The public demo is read-only and uses bundled example data. It has no account, upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support depends on accessible captions or authorized media. Notes and visuals should be checked against their references when accuracy matters.
+The public demo is read-only and uses bundled example data. It has no account, upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support requires accessible English captions. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
 
 ## Origin
 
