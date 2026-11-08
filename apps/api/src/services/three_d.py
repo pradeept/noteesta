@@ -7,9 +7,9 @@ from typing import Any
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from noteesta_api.config import get_settings
-from noteesta_api.schemas import Citation, Source, ThreeDMetadata
-from noteesta_api.services.orchestration import StudyPillOrchestrator
+from src.config import get_settings
+from src.common.schemas.schemas import Citation, Source, ThreeDMetadata
+from src.services.orchestration import StudyPillOrchestrator
 
 MAX_JAVASCRIPT_BYTES = 64 * 1024
 

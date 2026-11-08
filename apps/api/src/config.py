@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     openai_3d_model: str = "gpt-5.4"
+    anthropic_api_key: str | None = None
 
     whisper_model: str = "small"
     whisper_device: str = "auto"

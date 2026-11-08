@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from noteesta_api.database import database_dependency
-from noteesta_api.dependencies import current_user_id
-from noteesta_api.schemas import Collection, CollectionCreate, CollectionUpdate
+from src.database import database_dependency
+from src.dependencies.profile import current_user_id
+from src.common.schemas.schemas import Collection, CollectionCreate, CollectionUpdate
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 

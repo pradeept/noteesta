@@ -9,8 +9,8 @@ from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_ollama import OllamaEmbeddings
 from pymongo.asynchronous.database import AsyncDatabase
 
-from noteesta_api.config import get_settings
-from noteesta_api.llm import OllamaClient
+from src.config import get_settings
+from src.llm import OllamaClient
 
 logger = logging.getLogger(__name__)
 

@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from noteesta_api.config import get_settings
-from noteesta_api.database import close_database, ensure_indexes
-from noteesta_api.routes.collections import router as collections_router
-from noteesta_api.routes.health import router as health_router
-from noteesta_api.routes.library import router as library_router
-from noteesta_api.routes.pills import router as pills_router
-from noteesta_api.storage import get_storage
+from src.config import get_settings
+from src.database import close_database, ensure_indexes
+from src.routes.collections import router as collections_router
+from src.health.router import  health_router
+from src.routes.library import router as library_router
+from src.routes.models import router as models_router
+from src.pills.router import pills_router
+from src.storage import get_storage
 
 
 @asynccontextmanager
@@ -39,3 +40,4 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(pills_router, prefix="/api/v1")
 app.include_router(collections_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
+app.include_router(models_router, prefix="/api/v1")

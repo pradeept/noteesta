@@ -2,7 +2,7 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 
-from noteesta_api.schemas import VisualSpec
+from src.common.schemas.schemas import VisualSpec
 
 
 def render_visual(visual: VisualSpec) -> bytes:

@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from pymongo.asynchronous.database import AsyncDatabase
 
-from noteesta_api.database import database_dependency
-from noteesta_api.dependencies import current_user_id
-from noteesta_api.repository import PillRepository, sources_for_storage
-from noteesta_api.schemas import LibraryEntry, LibraryPillReference
-from noteesta_api.storage import get_storage
+from src.database import database_dependency
+from src.dependencies.profile import current_user_id
+from src.repository import PillRepository, sources_for_storage
+from src.common.schemas.schemas import LibraryEntry, LibraryPillReference
+from src.storage import get_storage
 
 router = APIRouter(prefix="/library", tags=["library"])
 

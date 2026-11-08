@@ -5,7 +5,7 @@ import boto3
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
-from noteesta_api.config import get_settings
+from src.config import get_settings
 
 
 class ObjectStorage:

@@ -10,7 +10,7 @@ The workspace follows the same layout as Wildmon: [`apps/web/`](apps/web/) conta
 
 - Frontend: Next.js, React, Tailwind CSS, and Phosphor icons, managed only with **pnpm**.
 - Backend: `fastapi[standard]`, Pydantic, Celery, MongoDB, Redis, and SeaweedFS S3-compatible storage, managed only with **uv**.
-- Local inference: Ollama with Qwen and a separate Ollama embedding model.
+- Study Pill generation: selectable Ollama (configured Qwen or Gemma 4 26B), OpenAI (GPT-5.4 family), or Anthropic (Claude Sonnet 5.5). Ollama still supplies the separate embedding model for source search.
 - Optional 3D generation: Qwen prepares a cited spatial brief; OpenAI GPT-5.4 generates a bounded Three.js scene. The scene is stored in MongoDB and rendered in a sandboxed viewer.
 - Parsing: Docling for documents and images, faster-whisper `small` for recordings, and yt-dlp for accessible YouTube captions.
 - LLM evaluation: Promptfoo suites for section extraction, note synthesis, optional materials, visual specifications, and grounded chat. The providers and assertions are Python files in the backend.
@@ -52,7 +52,7 @@ The workspace follows the same layout as Wildmon: [`apps/web/`](apps/web/) conta
    ```
 
    ```bash
-   cd apps/api && uv run fastapi dev noteesta_api/main.py
+   cd apps/api && uv run fastapi dev main.py
    ```
 
    ```bash
@@ -62,6 +62,8 @@ The workspace follows the same layout as Wildmon: [`apps/web/`](apps/web/) conta
 The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
 
 The public homepage at `/` explains Noteesta, and `/app` serves the read-only photosynthesis example, including an interactive 3D chloroplast schematic, without API calls. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Keep this setting off in public deployments until real authentication and authorization are in place. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
+
+The workspace's Generation model menu sets the default for new Study Pills. Each Pill saves its selection, so retrying it or asking its grounded chat uses the same provider and model. Keep the Ollama server running for embeddings with every choice. The menu exposes `gemma4:26b` after `ollama pull gemma4:26b`; OpenAI and Anthropic choices require server keys. `GET /api/v1/models` reports which choices are available. Interactive 3D retains its separate Qwen handoff and `OPENAI_3D_MODEL` scene generation.
 
 The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The FastAPI service currently trusts a caller-provided user ID; do not expose it as a public service without replacing that mechanism with real authentication. The local Compose setup binds the API port to loopback for this reason.
 
@@ -77,8 +79,9 @@ The backend values most likely to change are:
 - `OLLAMA_EMBEDDING_MODEL`: embedding model, default `nomic-embed-text`.
 - `OLLAMA_BASE_URL`: host used by local API and Promptfoo processes.
 - `OLLAMA_DOCKER_BASE_URL`: host used by the API and worker containers.
-- `OPENAI_API_KEY`: required when Interactive 3D is selected for a live Pill. The rest of the Pill remains available if 3D generation fails or the source material does not support a spatial model.
+- `OPENAI_API_KEY`: required for OpenAI Study Pill generation and for Interactive 3D scene generation. The rest of the Pill remains available if 3D generation fails or the source material does not support a spatial model.
 - `OPENAI_3D_MODEL`: OpenAI model used for scene code, default `gpt-5.4`.
+- `ANTHROPIC_API_KEY`: required to select Claude Sonnet 5.5 for Study Pill generation.
 - `ALLOW_DEMO_USER`: permits the `demo-user` development identity. Disable this when real authentication is connected.
 
 Generated 3D JavaScript and its Qwen handoff are stored in the `pill_three_d` MongoDB collection under the Pill ID. The Pill document stores only the 3D status, description, and citations. The owner-scoped `GET /api/v1/pills/{pill_id}/three-d` route loads the code when the 3D tab opens. The public example uses a bundled scene and does not call OpenAI. ZIP export does not include interactive models.
@@ -117,8 +120,11 @@ pnpm build:web
 
 cd apps/api
 uv run ruff check .
+uv run black --check .
 uv run pytest
 ```
+
+Black formats backend Python files with `cd apps/api && uv run black .`; Ruff remains the lint checker.
 
 LangChain provides source chunking, Ollama embeddings, structured generation, and retrieval through MongoDB Atlas Vector Search. The API stores chunks in `noteesta.chunks`; Atlas filters each vector query by the top-level `user_id` and `pill_id` metadata fields.
 

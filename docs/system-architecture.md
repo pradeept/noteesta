@@ -16,8 +16,9 @@
 | Object storage | Original files, parsed Docling JSON, generated Markdown, PNG visuals, export ZIP archives |
 | Docling | Structured document parsing, layout, tables, OCR, page provenance |
 | FFmpeg + faster-whisper | Extract audio and sample video frames; transcribe using **Whisper small**, retaining timestamps |
-| Ollama + Qwen3-VL-8B-Instruct | Local open-weight text/vision inference for synthesis, selected visual interpretation, optional materials and grounded chat |
-| Embedding runtime | Open-weight text embeddings for chunks and queries; exact model and dimensions remain to be selected |
+| Generation adapters | A saved per-Pill choice routes section analysis, notes, optional materials, visual specifications, and grounded chat to Ollama (Qwen or Gemma 4 26B), OpenAI (GPT-5.4 family), or Anthropic (Claude Sonnet 5.5) |
+| Ollama embeddings | The configured `OLLAMA_EMBEDDING_MODEL` embeds chunks and queries for every generation choice |
+| Interactive 3D | The existing Qwen handoff and separately configured OpenAI scene model run independently of the workspace choice |
 
 ## Processing sequence
 
@@ -33,7 +34,7 @@
 
 Persist queued, processing-stage, ready, and failed states. Use bounded retries for transient failures and idempotent writes keyed by job/source version so a retry does not duplicate outputs. Report failures with a clear retry action; keep completed artifacts intact. Export packaging may use the same worker queue.
 
-Short chat requests use FastAPI, the embedding runtime, scoped retrieval, and Ollama. If retrieval lacks evidence, return that limitation instead of inventing a source-backed answer.
+Short chat requests use FastAPI, Ollama embeddings, scoped retrieval, and the provider/model saved on the Pill. If retrieval lacks evidence, return that limitation instead of inventing a source-backed answer.
 
 ## Implementation decisions still open
 

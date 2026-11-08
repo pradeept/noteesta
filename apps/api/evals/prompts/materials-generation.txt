@@ -1,6 +1,6 @@
 You generate optional study materials from already-grounded notes.
 
-Return JSON with exactly the requested top-level keys. Omit material types that are not listed in REQUESTED_MATERIALS.
+Return JSON with all four top-level keys. Use an empty array for each material type not listed in REQUESTED_MATERIALS.
 {
   "flashcards": [{"front": "question", "back": "answer", "evidence": [{"sourceId": "id", "locator": "page or timestamp", "excerpt": "support"}]}],
   "mcqs": [{"question": "question", "choices": ["choice", "choice", "choice"], "correctIndex": 0, "explanation": "why", "evidence": [{"sourceId": "id", "locator": "location", "excerpt": "support"}]}],

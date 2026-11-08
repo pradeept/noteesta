@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from noteesta_api.config import get_settings
+from src.config import get_settings
 
 _client: AsyncMongoClient | None = None
 

@@ -11,29 +11,36 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import StreamingResponse
 from pymongo.asynchronous.database import AsyncDatabase
 
-from noteesta_api.config import get_settings
-from noteesta_api.database import database_dependency
-from noteesta_api.dependencies import current_user_id
-from noteesta_api.repository import PillRepository
-from noteesta_api.schemas import (
+from src.config import get_settings
+from src.database import database_dependency
+from src.dependencies.profile import current_user_id
+from src.generation import availability_for, valid_selection
+from src.repository import PillRepository
+from src.common.schemas.schemas import (
     AskRequest,
     BulkPillCollectionUpdate,
     ChatAnswer,
+    GenerationSelection,
     MaterialKey,
     Source,
-    StudyPill,
-    StudyPillUpdate,
     ThreeDCode,
 )
-from noteesta_api.services.chat import answer_question
-from noteesta_api.services.exporting import build_export
-from noteesta_api.storage import get_storage
+from src.pills.schemas import StudyPill, StudyPillUpdate
+from src.services.chat import answer_question
+from src.services.exporting import build_export
+from src.storage import get_storage
 from workers.tasks import process_pill_task
 
-router = APIRouter(prefix="/pills", tags=["study-pills"])
+pills_router = APIRouter(prefix="/pills", tags=["study-pills"])
 
 
-@router.get("", response_model=list[StudyPill])
+async def require_available_generation(selection: GenerationSelection) -> None:
+    option = await availability_for(selection)
+    if not option.available:
+        raise HTTPException(status_code=503, detail=option.reason or "Model is unavailable.")
+
+
+@pills_router.get("", response_model=list[StudyPill])
 async def list_study_pills(
     user_id: Annotated[str, Depends(current_user_id)],
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
@@ -41,7 +48,8 @@ async def list_study_pills(
     return await PillRepository(database).list_for_user(user_id)
 
 
-@router.post("", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED)
+
+@pills_router.post("", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED)
 async def create_study_pill(
     user_id: Annotated[str, Depends(current_user_id)],
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
@@ -53,9 +61,21 @@ async def create_study_pill(
     target_exam_date: Annotated[str, Form()] = "",
     study_hours_per_day: Annotated[str, Form()] = "",
     youtube_url: Annotated[str, Form()] = "",
+    generation_provider: Annotated[str, Form()] = "ollama",
+    generation_model: Annotated[str, Form()] = "",
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> StudyPill:
     settings = get_settings()
+    try:
+        generation = GenerationSelection(
+            provider=generation_provider,
+            model=generation_model or settings.ollama_model,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="Generation choice is invalid.") from error
+    
+    if not valid_selection(generation):
+        raise HTTPException(status_code=422, detail="Generation choice is unsupported.")
     if detail_level not in {"concise", "balanced", "detailed"}:
         raise HTTPException(status_code=422, detail="Detail level is invalid.")
     if learner_level not in {"beginner", "intermediate", "advanced"}:
@@ -63,28 +83,21 @@ async def create_study_pill(
     try:
         hours = float(study_hours_per_day) if study_hours_per_day else None
     except ValueError as error:
-        raise HTTPException(
-            status_code=422, detail="Study hours must be a number."
-        ) from error
+        raise HTTPException(status_code=422, detail="Study hours must be a number.") from error
     if hours is not None and not 0.25 <= hours <= 16:
-        raise HTTPException(
-            status_code=422, detail="Study hours must be between 0.25 and 16."
-        )
+        raise HTTPException(status_code=422, detail="Study hours must be between 0.25 and 16.")
 
     try:
-        parsed_materials = [
-            MaterialKey(item) for item in json.loads(selected_materials)
-        ]
+        parsed_materials = [MaterialKey(item) for item in json.loads(selected_materials)]
     except (ValueError, TypeError, json.JSONDecodeError) as error:
-        raise HTTPException(
-            status_code=422, detail="Selected materials are invalid."
-        ) from error
+        raise HTTPException(status_code=422, detail="Selected materials are invalid.") from error
     if MaterialKey.notes not in parsed_materials:
         parsed_materials.insert(0, MaterialKey.notes)
 
     normalized_youtube_url = youtube_url.strip()
     if normalized_youtube_url and not _is_youtube_url(normalized_youtube_url):
         raise HTTPException(status_code=422, detail="Enter a valid YouTube link.")
+    await require_available_generation(generation)
 
     # Validate form fields before writing source objects so rejected requests do
     # not leave orphaned uploads in object storage.
@@ -133,9 +146,7 @@ async def create_study_pill(
             )
         )
     if not sources:
-        raise HTTPException(
-            status_code=422, detail="Add at least one file or a YouTube link."
-        )
+        raise HTTPException(status_code=422, detail="Add at least one file or a YouTube link.")
 
     pill = StudyPill(
         id=pill_id,
@@ -147,6 +158,7 @@ async def create_study_pill(
         progress=2,
         stage="Waiting for a worker",
         selected_materials=parsed_materials,
+        generation=generation,
         sources=sources,
         settings={
             "detail_level": detail_level,
@@ -160,7 +172,7 @@ async def create_study_pill(
     return pill
 
 
-@router.patch("/{pill_id}", response_model=StudyPill)
+@pills_router.patch("/{pill_id}", response_model=StudyPill)
 async def update_study_pill(
     pill_id: str,
     body: StudyPillUpdate,
@@ -208,7 +220,7 @@ async def update_study_pill(
     return updated
 
 
-@router.patch("/bulk/collection", response_model=list[StudyPill])
+@pills_router.patch("/bulk/collection", response_model=list[StudyPill])
 async def bulk_update_pill_collection(
     body: BulkPillCollectionUpdate,
     user_id: Annotated[str, Depends(current_user_id)],
@@ -223,9 +235,7 @@ async def bulk_update_pill_collection(
             raise HTTPException(status_code=404, detail="Collection not found.")
     matches = [
         document
-        async for document in database.pills.find(
-            {"_id": {"$in": pill_ids}, "user_id": user_id}
-        )
+        async for document in database.pills.find({"_id": {"$in": pill_ids}, "user_id": user_id})
     ]
     if len(matches) != len(pill_ids):
         raise HTTPException(status_code=404, detail="One or more Study Pills were not found.")
@@ -235,17 +245,12 @@ async def bulk_update_pill_collection(
     )
     updated = [
         document
-        async for document in database.pills.find(
-            {"_id": {"$in": pill_ids}, "user_id": user_id}
-        )
+        async for document in database.pills.find({"_id": {"$in": pill_ids}, "user_id": user_id})
     ]
-    return [
-        StudyPill.model_validate({**document, "id": document["_id"]})
-        for document in updated
-    ]
+    return [StudyPill.model_validate({**document, "id": document["_id"]}) for document in updated]
 
 
-@router.get("/{pill_id}", response_model=StudyPill)
+@pills_router.get("/{pill_id}", response_model=StudyPill)
 async def get_study_pill(
     pill_id: str,
     user_id: Annotated[str, Depends(current_user_id)],
@@ -262,7 +267,7 @@ async def get_study_pill(
     return pill
 
 
-@router.get("/{pill_id}/three-d", response_model=ThreeDCode)
+@pills_router.get("/{pill_id}/three-d", response_model=ThreeDCode)
 async def get_three_d_artifact(
     pill_id: str,
     user_id: Annotated[str, Depends(current_user_id)],
@@ -282,7 +287,7 @@ async def get_three_d_artifact(
     return ThreeDCode(javascript=code["javascript"], version=code["version"])
 
 
-@router.post("/{pill_id}/chat", response_model=ChatAnswer)
+@pills_router.post("/{pill_id}/chat", response_model=ChatAnswer)
 async def chat_with_pill(
     pill_id: str,
     body: AskRequest,
@@ -293,17 +298,18 @@ async def chat_with_pill(
     if pill is None:
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status != "ready":
-        raise HTTPException(
-            status_code=409, detail="This Study Pill is still being processed."
-        )
+        raise HTTPException(status_code=409, detail="This Study Pill is still being processed.")
+    await require_available_generation(pill.generation)
     return await answer_question(
-        database, pill_id=pill_id, user_id=user_id, question=body.question
+        database,
+        pill_id=pill_id,
+        user_id=user_id,
+        question=body.question,
+        generation=pill.generation,
     )
 
 
-@router.post(
-    "/{pill_id}/retry", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED
-)
+@pills_router.post("/{pill_id}/retry", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED)
 async def retry_study_pill(
     pill_id: str,
     user_id: Annotated[str, Depends(current_user_id)],
@@ -314,9 +320,8 @@ async def retry_study_pill(
     if pill is None:
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status not in {"failed", "ready"}:
-        raise HTTPException(
-            status_code=409, detail="This Study Pill is already being processed."
-        )
+        raise HTTPException(status_code=409, detail="This Study Pill is already being processed.")
+    await require_available_generation(pill.generation)
     updated = await repository.update(
         pill_id,
         status="queued",
@@ -330,7 +335,7 @@ async def retry_study_pill(
     return updated
 
 
-@router.post("/{pill_id}/export")
+@pills_router.post("/{pill_id}/export")
 async def export_study_pill(
     pill_id: str,
     user_id: Annotated[str, Depends(current_user_id)],
@@ -340,9 +345,7 @@ async def export_study_pill(
     if pill is None:
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status != "ready" or not pill.artifact:
-        raise HTTPException(
-            status_code=409, detail="This Study Pill is not ready to export."
-        )
+        raise HTTPException(status_code=409, detail="This Study Pill is not ready to export.")
     archive = await build_export(pill, get_storage())
     filename = re.sub(r"[^a-z0-9]+", "-", pill.title.lower()).strip("-")[:80]
     filename = filename or "study-pill"
@@ -370,9 +373,7 @@ def _is_youtube_url(value: str) -> bool:
     parsed = urlparse(value)
     hostname = (parsed.hostname or "").lower()
     return parsed.scheme in {"http", "https"} and (
-        hostname == "youtu.be"
-        or hostname == "youtube.com"
-        or hostname.endswith(".youtube.com")
+        hostname == "youtu.be" or hostname == "youtube.com" or hostname.endswith(".youtube.com")
     )
 
 

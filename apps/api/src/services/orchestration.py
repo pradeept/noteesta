@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from noteesta_api.llm import (
+from src.generation import GenerationClient
+from src.llm import (
     MATERIALS_SCHEMA,
     NOTES_SCHEMA,
     SECTION_SCHEMA,
@@ -10,13 +11,13 @@ from noteesta_api.llm import (
     VISUAL_SCHEMA,
     OllamaClient,
 )
-from noteesta_api.prompts import render_prompt
+from src.prompts import render_prompt
 
 
 class StudyPillOrchestrator:
     """Coordinate source analysis and generation with shared prompts and schemas."""
 
-    def __init__(self, client: OllamaClient | None = None) -> None:
+    def __init__(self, client: GenerationClient | None = None) -> None:
         self.client = client or OllamaClient()
 
     async def analyze_section(

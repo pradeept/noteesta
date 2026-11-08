@@ -8,9 +8,9 @@ from typing import Any
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from noteesta_api.config import get_settings
-from noteesta_api.schemas import Source
-from noteesta_api.storage import ObjectStorage
+from src.config import get_settings
+from src.common.schemas.schemas import Source
+from src.storage import ObjectStorage
 
 
 @dataclass

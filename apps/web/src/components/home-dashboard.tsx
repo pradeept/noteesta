@@ -18,9 +18,22 @@ import { CreatePillDialog } from '@/components/create-pill-dialog';
 import { FileLibraryDialog } from '@/components/file-library-dialog';
 import { ThemePicker } from '@/components/appearance-controls';
 import { SourceIcon } from '@/components/source-icon';
-import { createPill, listCollections, listLibrary, listPills } from '@/lib/api';
+import {
+  createPill,
+  listCollections,
+  listGenerationOptions,
+  listLibrary,
+  listPills,
+} from '@/lib/api';
+import { getPreferredGeneration, setPreferredGeneration } from '@/lib/generation-preference';
 import { demoPill } from '@/lib/fixtures';
-import type { Collection, CreatePillInput, LibraryEntry, StudyPill } from '@/lib/types';
+import type {
+  Collection,
+  CreatePillInput,
+  GenerationOption,
+  LibraryEntry,
+  StudyPill,
+} from '@/lib/types';
 
 const enableDemo = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA !== 'false';
 
@@ -32,6 +45,9 @@ export function HomeDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sourceError, setSourceError] = useState('');
+  const [generationOptions, setGenerationOptions] = useState<GenerationOption[]>([]);
+  const [generationValue, setGenerationValue] = useState('');
+  const [generationError, setGenerationError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null);
@@ -62,8 +78,49 @@ export function HomeDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void listGenerationOptions()
+      .then((options) => {
+        if (cancelled) return;
+        setGenerationOptions(options);
+        const saved = getPreferredGeneration();
+        const preferred =
+          saved &&
+          options.find(
+            (option) => option.provider === saved.provider && option.model === saved.model,
+          );
+        const defaultOption = options[0];
+        setGenerationValue(
+          preferred
+            ? `${preferred.provider}:${preferred.model}`
+            : defaultOption
+              ? `${defaultOption.provider}:${defaultOption.model}`
+              : '',
+        );
+        setGenerationError('');
+      })
+      .catch(() => {
+        if (!cancelled)
+          setGenerationError('Model choices could not be loaded. Refresh to try again.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function handleCreate(input: CreatePillInput) {
-    const pill = await createPill(input);
+    const selected = generationOptions.find(
+      (option) => `${option.provider}:${option.model}` === generationValue,
+    );
+    if (!selected?.available) throw new Error(selected?.reason ?? 'Choose an available model.');
+    const pill = await createPill({
+      ...input,
+      generation: {
+        provider: selected.provider,
+        model: selected.model,
+      },
+    });
     setPills((current) => [pill, ...current]);
     setCreateOpen(false);
     router.push(`/pills/${pill.id}`);
@@ -79,6 +136,9 @@ export function HomeDashboard() {
   const processingCount = pills.filter((pill) =>
     ['queued', 'processing'].includes(pill.status),
   ).length;
+  const chosenGeneration = generationOptions.find(
+    (option) => `${option.provider}:${option.model}` === generationValue,
+  );
 
   return (
     <div className="home-dashboard">
@@ -101,6 +161,7 @@ export function HomeDashboard() {
             type="button"
             className="primary-button"
             aria-label="New Study Pill"
+            disabled={!chosenGeneration?.available}
             onClick={() => setCreateOpen(true)}
           >
             <PlusIcon size={17} weight="bold" /> <span>New Study Pill</span>
@@ -116,6 +177,67 @@ export function HomeDashboard() {
             </p>
             <h1>Welcome back.</h1>
             <p>Pick up a lesson, organize your Study Pills, or bring in something new.</p>
+          </div>
+          <div className="home-generation-control">
+            <label htmlFor="home-generation-model">
+              Generation model
+              <select
+                id="home-generation-model"
+                value={generationValue}
+                disabled={!generationOptions.length}
+                onChange={(event) => {
+                  const option = generationOptions.find(
+                    (item) => `${item.provider}:${item.model}` === event.target.value,
+                  );
+                  if (!option) return;
+                  setGenerationValue(event.target.value);
+                  setPreferredGeneration({ provider: option.provider, model: option.model });
+                }}
+              >
+                {(['ollama', 'openai', 'anthropic'] as const).map((provider) => (
+                  <optgroup
+                    key={provider}
+                    label={
+                      provider === 'ollama'
+                        ? 'Ollama'
+                        : provider === 'openai'
+                          ? 'OpenAI'
+                          : 'Anthropic'
+                    }
+                  >
+                    {generationOptions
+                      .filter((option) => option.provider === provider)
+                      .map((option) => (
+                        <option
+                          key={`${option.provider}:${option.model}`}
+                          value={`${option.provider}:${option.model}`}
+                          disabled={!option.available}
+                        >
+                          {option.label}
+                          {option.available ? '' : ' · unavailable'}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <p role={generationError ? 'alert' : undefined}>
+              {generationError || chosenGeneration?.reason || 'Used for new Study Pills.'}
+            </p>
+            {generationOptions.some((option) => !option.available) ? (
+              <details className="home-generation-availability">
+                <summary>Unavailable models</summary>
+                <ul>
+                  {generationOptions
+                    .filter((option) => !option.available)
+                    .map((option) => (
+                      <li key={`${option.provider}:${option.model}`}>
+                        <strong>{option.label}</strong>: {option.reason}
+                      </li>
+                    ))}
+                </ul>
+              </details>
+            ) : null}
           </div>
         </section>
 

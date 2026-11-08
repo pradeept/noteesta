@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from pymongo.errors import PyMongoError
 
-from noteesta_api import database
+from src import database
 from workers import tasks
 
 

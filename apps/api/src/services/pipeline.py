@@ -6,14 +6,15 @@ from typing import Any
 
 from langchain_core.documents import Document
 
-from noteesta_api.config import get_settings
-from noteesta_api.database import get_database
-from noteesta_api.repository import (
+from src.config import get_settings
+from src.database import get_database
+from src.generation import generation_client
+from src.repository import (
     PillRepository,
     artifact_for_storage,
     sources_for_storage,
 )
-from noteesta_api.schemas import (
+from src.common.schemas.schemas import (
     Citation,
     Flashcard,
     MaterialKey,
@@ -26,16 +27,16 @@ from noteesta_api.schemas import (
     TrueFalseQuestion,
     VisualSpec,
 )
-from noteesta_api.services.extraction import (
+from src.services.extraction import (
     canonical_bytes,
     chunk_segments,
     extract_source,
 )
-from noteesta_api.services.orchestration import StudyPillOrchestrator
-from noteesta_api.services.rag import StudyPillRetriever
-from noteesta_api.services.rendering import render_visual
-from noteesta_api.services.three_d import prepare_three_d
-from noteesta_api.storage import get_storage
+from src.services.orchestration import StudyPillOrchestrator
+from src.services.rag import StudyPillRetriever
+from src.services.rendering import render_visual
+from src.services.three_d import prepare_three_d
+from src.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,8 @@ async def process_pill(pill_id: str) -> None:
             len(pill.sources),
         )
         storage = get_storage()
-        orchestrator = StudyPillOrchestrator()
-        retriever = StudyPillRetriever(database, orchestrator.client)
+        orchestrator = StudyPillOrchestrator(generation_client(pill.generation))
+        retriever = StudyPillRetriever(database)
         analyses: list[dict[str, Any]] = []
         chunk_documents: list[Document] = []
         source_lookup = {source.id: source for source in pill.sources}
@@ -256,7 +257,7 @@ async def process_pill(pill_id: str) -> None:
             await repository.delete_three_d(pill.id, pill.user_id)
             try:
                 three_d, javascript, handoff = await prepare_three_d(
-                    orchestrator, grounded_notes, source_lookup
+                    StudyPillOrchestrator(), grounded_notes, source_lookup
                 )
                 if javascript and handoff:
                     await repository.save_three_d(
@@ -269,8 +270,7 @@ async def process_pill(pill_id: str) -> None:
                 three_d = ThreeDMetadata(
                     status="unavailable",
                     reason=(
-                        "The 3D model could not be generated. "
-                        "Regenerate this Pill to try again."
+                        "The 3D model could not be generated. Regenerate this Pill to try again."
                     ),
                 )
         else:
@@ -293,9 +293,8 @@ async def process_pill(pill_id: str) -> None:
             stage="Ready to study",
             progress=100,
             sources=sources_for_storage(pill.sources),
-            processing_duration_seconds=base_duration + max(
-                1, round(time.monotonic() - attempt_started)
-            ),
+            processing_duration_seconds=base_duration
+            + max(1, round(time.monotonic() - attempt_started)),
         )
     except Exception as error:
         logger.exception("Pill %s: generation failed: %s", pill_id, error)
@@ -306,9 +305,8 @@ async def process_pill(pill_id: str) -> None:
                     status="failed",
                     stage="Generation stopped",
                     error=str(error),
-                    processing_duration_seconds=base_duration + max(
-                        1, round(time.monotonic() - attempt_started)
-                    ),
+                    processing_duration_seconds=base_duration
+                    + max(1, round(time.monotonic() - attempt_started)),
                 )
             except Exception:
                 logger.exception("Pill %s: could not persist failed status", pill_id)

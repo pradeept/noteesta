@@ -1,8 +1,8 @@
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from noteesta_api.schemas import StudyPill
-from noteesta_api.storage import ObjectStorage
+from src.pills.schemas import StudyPill
+from src.storage import ObjectStorage
 
 
 async def build_export(pill: StudyPill, storage: ObjectStorage) -> bytes:

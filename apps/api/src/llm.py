@@ -5,14 +5,15 @@ import httpx
 from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
-from noteesta_api.config import get_settings
+from src.config import get_settings
 
 
 class OllamaClient:
     """Provide the structured LLM and embedding operations used by Study Pill jobs."""
 
-    def __init__(self) -> None:
+    def __init__(self, model: str | None = None) -> None:
         self.settings = get_settings()
+        self.model = model or self.settings.ollama_model
 
     async def generate_json(
         self,
@@ -22,7 +23,7 @@ class OllamaClient:
         num_predict: int = 4096,
     ) -> dict[str, Any]:
         model = ChatOllama(
-            model=self.settings.ollama_model,
+            model=self.model,
             base_url=self.settings.ollama_base_url,
             temperature=0,
             num_ctx=self.settings.ollama_num_ctx,
@@ -65,6 +66,7 @@ class OllamaClient:
             async with httpx.AsyncClient(
                 base_url=self.settings.ollama_base_url,
                 timeout=3,
+                trust_env=False,
             ) as client:
                 response = await client.get("/api/tags")
                 return response.is_success
@@ -89,7 +91,14 @@ SECTION_SCHEMA: dict[str, Any] = {
                 "required": ["text", "locator", "excerpt"],
             },
         },
-        "keyTerms": {"type": "array", "items": {"type": "object"}},
+        "keyTerms": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"term": {"type": "string"}, "definition": {"type": "string"}},
+                "required": ["term", "definition"],
+            },
+        },
         "uncertainties": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["title", "summary", "claims", "keyTerms", "uncertainties"],
@@ -107,7 +116,18 @@ NOTES_SCHEMA: dict[str, Any] = {
                     "id": {"type": "string"},
                     "title": {"type": "string"},
                     "markdown": {"type": "string"},
-                    "evidence": {"type": "array", "items": {"type": "object"}},
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "sourceId": {"type": "string"},
+                                "locator": {"type": "string"},
+                                "excerpt": {"type": "string"},
+                            },
+                            "required": ["sourceId", "locator", "excerpt"],
+                        },
+                    },
                 },
                 "required": ["id", "title", "markdown", "evidence"],
             },
@@ -116,14 +136,74 @@ NOTES_SCHEMA: dict[str, Any] = {
     "required": ["summary", "sections"],
 }
 
+EVIDENCE_ITEM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "sourceId": {"type": "string"},
+        "locator": {"type": "string"},
+        "excerpt": {"type": "string"},
+    },
+    "required": ["sourceId", "locator", "excerpt"],
+}
+
+
+def _material_item(properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {**properties, "evidence": {"type": "array", "items": EVIDENCE_ITEM_SCHEMA}},
+        "required": [*properties, "evidence"],
+    }
+
+
+def _object(properties: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "object", "properties": properties, "required": list(properties)}
+
+
+def _array(item: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "array", "items": item}
+
+
 MATERIALS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "flashcards": {"type": "array", "items": {"type": "object"}},
-        "mcqs": {"type": "array", "items": {"type": "object"}},
-        "trueFalse": {"type": "array", "items": {"type": "object"}},
-        "roadmap": {"type": "array", "items": {"type": "object"}},
+        "flashcards": _array(
+            _material_item(
+                {
+                    "front": {"type": "string"},
+                    "back": {"type": "string"},
+                }
+            )
+        ),
+        "mcqs": _array(
+            _material_item(
+                {
+                    "question": {"type": "string"},
+                    "choices": _array({"type": "string"}),
+                    "correctIndex": {"type": "integer"},
+                    "explanation": {"type": "string"},
+                }
+            )
+        ),
+        "trueFalse": _array(
+            _material_item(
+                {
+                    "statement": {"type": "string"},
+                    "answer": {"type": "boolean"},
+                    "explanation": {"type": "string"},
+                }
+            )
+        ),
+        "roadmap": _array(
+            _object(
+                {
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "sectionId": {"type": "string"},
+                }
+            )
+        ),
     },
+    "required": ["flashcards", "mcqs", "trueFalse", "roadmap"],
 }
 
 VISUAL_SCHEMA: dict[str, Any] = {
@@ -132,10 +212,34 @@ VISUAL_SCHEMA: dict[str, Any] = {
         "title": {"type": "string"},
         "description": {"type": "string"},
         "kind": {"type": "string", "enum": ["flow", "bar", "timeline"]},
-        "nodes": {"type": "array", "items": {"type": "object"}},
-        "edges": {"type": "array", "items": {"type": "object"}},
-        "data": {"type": "array", "items": {"type": "object"}},
-        "evidence": {"type": "array", "items": {"type": "object"}},
+        "nodes": _array(
+            _object(
+                {
+                    "id": {"type": "string"},
+                    "label": {"type": "string"},
+                    "detail": {"type": "string"},
+                }
+            )
+        ),
+        "edges": _array(
+            _object(
+                {
+                    "from": {"type": "string"},
+                    "to": {"type": "string"},
+                    "label": {"type": "string"},
+                }
+            )
+        ),
+        "data": _array(
+            _object(
+                {
+                    "label": {"type": "string"},
+                    "value": {"type": "number"},
+                    "unit": {"type": ["string", "null"]},
+                }
+            )
+        ),
+        "evidence": {"type": "array", "items": EVIDENCE_ITEM_SCHEMA},
     },
     "required": ["title", "description", "kind", "nodes", "edges", "data", "evidence"],
 }
@@ -181,7 +285,7 @@ CHAT_SCHEMA: dict[str, Any] = {
     "properties": {
         "answer": {"type": "string"},
         "grounded": {"type": "boolean"},
-        "evidence": {"type": "array", "items": {"type": "object"}},
+        "evidence": {"type": "array", "items": EVIDENCE_ITEM_SCHEMA},
     },
     "required": ["answer", "grounded", "evidence"],
 }

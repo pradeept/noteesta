@@ -3,10 +3,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from noteesta_api.repository import PillRepository, _serialize
-from noteesta_api.routes.pills import get_three_d_artifact
-from noteesta_api.schemas import Source, StudyArtifact, StudyPill, ThreeDMetadata
-from noteesta_api.services.three_d import prepare_three_d, validate_scene_code
+from src.repository import PillRepository, _serialize
+from src.routes.pills import get_three_d_artifact
+from src.common.schemas.schemas import Source, StudyArtifact, StudyPill, ThreeDMetadata
+from src.services.three_d import prepare_three_d, validate_scene_code
 
 
 class FakeOrchestrator:

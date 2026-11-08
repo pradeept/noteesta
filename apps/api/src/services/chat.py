@@ -2,10 +2,11 @@ import json
 
 from pymongo.asynchronous.database import AsyncDatabase
 
-from noteesta_api.llm import CHAT_SCHEMA, OllamaClient
-from noteesta_api.prompts import render_prompt
-from noteesta_api.schemas import ChatAnswer, Citation
-from noteesta_api.services.rag import StudyPillRetriever
+from src.generation import generation_client
+from src.llm import CHAT_SCHEMA
+from src.prompts import render_prompt
+from src.common.schemas.schemas import ChatAnswer, Citation, GenerationSelection
+from src.services.rag import StudyPillRetriever
 
 
 async def answer_question(
@@ -14,11 +15,12 @@ async def answer_question(
     pill_id: str,
     user_id: str,
     question: str,
+    generation: GenerationSelection,
 ) -> ChatAnswer:
     """Answer a question only from the nearest chunks in the requested Study Pill."""
 
-    client = OllamaClient()
-    ranked = await StudyPillRetriever(database, client).retrieve(
+    client = generation_client(generation)
+    ranked = await StudyPillRetriever(database).retrieve(
         pill_id=pill_id, user_id=user_id, question=question
     )
     context = [
@@ -68,7 +70,4 @@ async def answer_question(
             citations=[],
             grounded=False,
         )
-    return ChatAnswer(
-        answer=str(result["answer"]), citations=citations, grounded=grounded
-    )
-
+    return ChatAnswer(answer=str(result["answer"]), citations=citations, grounded=grounded)

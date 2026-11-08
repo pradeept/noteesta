@@ -5,6 +5,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
+from src.config import get_settings
+
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
@@ -26,6 +28,21 @@ class MaterialKey(StrEnum):
     true_false = "trueFalse"
     roadmap = "roadmap"
     three_d = "threeD"
+
+
+class GenerationSelection(ApiModel):
+    provider: Literal["ollama", "openai", "anthropic"]
+    model: str = Field(min_length=1)
+
+
+def default_generation() -> GenerationSelection:
+    return GenerationSelection(provider="ollama", model=get_settings().ollama_model)
+
+
+class GenerationOption(GenerationSelection):
+    label: str
+    available: bool
+    reason: str | None = None
 
 
 class Citation(ApiModel):
@@ -157,26 +174,6 @@ class StudyArtifact(ApiModel):
     three_d: ThreeDMetadata | None = None
 
 
-class StudyPill(ApiModel):
-    id: str
-    user_id: str = Field(exclude=True)
-    title: str
-    subject: str
-    description: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    collection_id: str | None = None
-    status: Literal["draft", "queued", "processing", "ready", "failed"] = "draft"
-    progress: int = Field(default=0, ge=0, le=100)
-    stage: str | None = None
-    selected_materials: list[MaterialKey] = Field(default_factory=lambda: [MaterialKey.notes])
-    sources: list[Source] = Field(default_factory=list)
-    artifact: StudyArtifact | None = None
-    updated_at: datetime = Field(default_factory=utc_now)
-    processing_duration_seconds: int | None = None
-    error: str | None = None
-    settings: dict[str, Any] = Field(default_factory=dict, exclude=True)
-
-
 CollectionColor = Literal["moss", "ocean", "terracotta", "plum", "gold", "slate"]
 
 
@@ -196,13 +193,6 @@ class CollectionCreate(ApiModel):
 class CollectionUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
     color: CollectionColor | None = None
-
-
-class StudyPillUpdate(ApiModel):
-    title: str | None = Field(default=None, min_length=1, max_length=100)
-    description: str | None = Field(default=None, max_length=500)
-    tags: list[str] | None = Field(default=None, max_length=20)
-    collection_id: str | None = None
 
 
 class BulkPillCollectionUpdate(ApiModel):

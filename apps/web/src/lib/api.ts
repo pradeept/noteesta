@@ -3,10 +3,12 @@ import type {
   Collection,
   CollectionColor,
   CreatePillInput,
+  GenerationOption,
   LibraryEntry,
   StudyPill,
   ThreeDCode,
 } from '@/lib/types';
+import { getPreferredGeneration } from '@/lib/generation-preference';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
 const USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo-user';
@@ -112,6 +114,11 @@ export async function getThreeDCode(id: string): Promise<ThreeDCode> {
 
 export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   const form = new FormData();
+  const generation = input.generation ?? getPreferredGeneration();
+  if (generation) {
+    form.set('generation_provider', generation.provider);
+    form.set('generation_model', generation.model);
+  }
   form.set('title', input.title);
   form.set('subject', input.subject);
   form.set('youtube_url', input.youtubeUrl ?? '');
@@ -123,6 +130,10 @@ export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   input.files.forEach((file) => form.append('files', file));
 
   return request<StudyPill>('/pills', { method: 'POST', body: form });
+}
+
+export async function listGenerationOptions(): Promise<GenerationOption[]> {
+  return request<GenerationOption[]>('/models');
 }
 
 export async function askPill(id: string, question: string): Promise<ChatAnswer> {
