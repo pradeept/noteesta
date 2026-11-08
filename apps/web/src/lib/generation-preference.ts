@@ -1,12 +1,12 @@
 import type { GenerationSelection } from '@/lib/types';
+import { getSession } from '@/lib/session';
 
-const userId = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo-user';
-const key = `noteesta-generation:${userId}`;
+const key = () => `noteesta:v2:generation:${getSession().user?.id ?? 'anonymous'}`;
 
 export function getPreferredGeneration(): GenerationSelection | null {
   if (typeof window === 'undefined') return null;
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+    const value: unknown = JSON.parse(localStorage.getItem(key()) ?? 'null');
     if (
       value &&
       typeof value === 'object' &&
@@ -24,7 +24,7 @@ export function getPreferredGeneration(): GenerationSelection | null {
 
 export function setPreferredGeneration(value: GenerationSelection): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(key(), JSON.stringify(value));
   } catch {
     // The active page still keeps the selection when storage is unavailable.
   }

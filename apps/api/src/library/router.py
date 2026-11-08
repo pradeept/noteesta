@@ -81,6 +81,23 @@ async def delete_library_source(
     )
 
 
+@router.get("/{source_id}/download-url")
+async def library_download_url(
+    source_id: str,
+    user_id: Annotated[str, Depends(current_user_id)],
+    database: Annotated[AsyncDatabase, Depends(database_dependency)],
+) -> dict:
+    _, source = await _get_source(database, user_id, source_id)
+    if source.kind == "youtube":
+        raise HTTPException(409, detail="YouTube sources are links, not stored files.")
+    if not source.original_available or not source.object_key:
+        raise HTTPException(410, detail="The original file has been deleted.")
+    return {
+        "url": await get_storage().presigned_url(source.object_key, expires=300),
+        "expiresIn": 300,
+    }
+
+
 async def _get_source(database: AsyncDatabase, user_id: str, source_id: str):
     pills = await PillRepository(database).list_for_user(user_id)
     for pill in pills:

@@ -9,30 +9,21 @@ import type {
   ThreeDCode,
 } from '@/lib/types';
 import { getPreferredGeneration } from '@/lib/generation-preference';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
-const USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo-user';
+import { authenticatedFetch, sessionEpoch } from '@/lib/session';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  headers.set('X-User-Id', USER_ID);
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new Error(body?.detail ?? `Request failed with status ${response.status}`);
-  }
+  const response = await authenticatedFetch(path, init);
+  const started = sessionEpoch();
 
   if (response.status === 204) return undefined as T;
 
-  return response.json() as Promise<T>;
+  const body = (await response.json()) as T;
+  if (started !== sessionEpoch()) throw new DOMException('Session changed', 'AbortError');
+  return body;
 }
 
-export async function listPills(): Promise<StudyPill[]> {
-  return request<StudyPill[]>('/pills');
+export async function listPills(signal?: AbortSignal): Promise<StudyPill[]> {
+  return request<StudyPill[]>('/pills', { signal });
 }
 
 export async function updatePill(
@@ -62,8 +53,8 @@ export async function movePillsToCollection(
   });
 }
 
-export async function listCollections(): Promise<Collection[]> {
-  return request<Collection[]>('/collections');
+export async function listCollections(signal?: AbortSignal): Promise<Collection[]> {
+  return request<Collection[]>('/collections', { signal });
 }
 
 export async function createCollection(input: {
@@ -92,24 +83,25 @@ export async function deleteCollection(id: string): Promise<void> {
   await request<void>(`/collections/${id}`, { method: 'DELETE' });
 }
 
-export async function listLibrary(): Promise<LibraryEntry[]> {
-  return request<LibraryEntry[]>('/library');
+export async function listLibrary(signal?: AbortSignal): Promise<LibraryEntry[]> {
+  return request<LibraryEntry[]>('/library', { signal });
 }
 
 export async function deleteLibraryOriginal(sourceId: string): Promise<LibraryEntry> {
   return request<LibraryEntry>(`/library/${sourceId}`, { method: 'DELETE' });
 }
 
-export function libraryDownloadUrl(sourceId: string): string {
-  return `${API_URL}/library/${sourceId}/download`;
+export async function libraryDownloadUrl(sourceId: string): Promise<string> {
+  const result = await request<{ url: string }>(`/library/${sourceId}/download-url`);
+  return result.url;
 }
 
-export async function getPill(id: string): Promise<StudyPill> {
-  return request<StudyPill>(`/pills/${id}`);
+export async function getPill(id: string, signal?: AbortSignal): Promise<StudyPill> {
+  return request<StudyPill>(`/pills/${id}`, { signal });
 }
 
-export async function getThreeDCode(id: string): Promise<ThreeDCode> {
-  return request<ThreeDCode>(`/pills/${id}/three-d`);
+export async function getThreeDCode(id: string, signal?: AbortSignal): Promise<ThreeDCode> {
+  return request<ThreeDCode>(`/pills/${id}/three-d`, { signal });
 }
 
 export async function createPill(input: CreatePillInput): Promise<StudyPill> {
@@ -132,8 +124,8 @@ export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   return request<StudyPill>('/pills', { method: 'POST', body: form });
 }
 
-export async function listGenerationOptions(): Promise<GenerationOption[]> {
-  return request<GenerationOption[]>('/models');
+export async function listGenerationOptions(signal?: AbortSignal): Promise<GenerationOption[]> {
+  return request<GenerationOption[]>('/models', { signal });
 }
 
 export async function askPill(id: string, question: string): Promise<ChatAnswer> {
@@ -149,10 +141,6 @@ export async function retryPill(id: string): Promise<StudyPill> {
 }
 
 export async function exportPill(id: string): Promise<Blob> {
-  const response = await fetch(`${API_URL}/pills/${id}/export`, {
-    method: 'POST',
-    headers: { 'X-User-Id': USER_ID },
-  });
-  if (!response.ok) throw new Error('The export could not be prepared.');
+  const response = await authenticatedFetch(`/pills/${id}/export`, { method: 'POST' });
   return response.blob();
 }

@@ -1,72 +1,17 @@
-from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from fakes import FakeTable
 from fastapi.testclient import TestClient
 
 from src import generation
 from src.database import database_dependency
+from src.dependencies.profile import current_user_id
 from src.health import router as health_routes
 from src.library import router as library_routes
 from src.main import app
 from src.pills import router as pill_routes
-
-
-class FakeTable:
-    def __init__(self, documents=()):
-        self.documents = {document["_id"]: deepcopy(document) for document in documents}
-
-    @staticmethod
-    def matches(document, query):
-        return all(
-            (
-                document.get(key) in value["$in"]
-                if isinstance(value, dict) and "$in" in value
-                else document.get(key) == value
-            )
-            for key, value in query.items()
-        )
-
-    def find(self, query):
-        documents = [doc for doc in self.documents.values() if self.matches(doc, query)]
-
-        class Cursor:
-            def sort(self, *_args):
-                return self
-
-            async def __aiter__(self):
-                for document in documents:
-                    yield deepcopy(document)
-
-        return Cursor()
-
-    async def find_one(self, query):
-        async for document in self.find(query):
-            return document
-        return None
-
-    async def insert_one(self, document):
-        self.documents[document["_id"]] = deepcopy(document)
-
-    async def update_one(self, query, update):
-        for document in self.documents.values():
-            if self.matches(document, query):
-                document.update(update["$set"])
-                return SimpleNamespace(matched_count=1)
-        return SimpleNamespace(matched_count=0)
-
-    async def update_many(self, query, update):
-        for document in self.documents.values():
-            if self.matches(document, query):
-                document.update(update["$set"])
-
-    async def delete_one(self, query):
-        document = await self.find_one(query)
-        if document is None:
-            return SimpleNamespace(deleted_count=0)
-        del self.documents[document["_id"]]
-        return SimpleNamespace(deleted_count=1)
 
 
 @pytest.fixture
@@ -114,7 +59,8 @@ def api(monkeypatch):
         ),
     )
     monkeypatch.setitem(app.dependency_overrides, database_dependency, lambda: database)
-    client = TestClient(app, headers={"X-User-Id": "student-1"})
+    monkeypatch.setitem(app.dependency_overrides, current_user_id, lambda: "student-1")
+    client = TestClient(app)
     try:
         yield client, database, storage, queue
     finally:
@@ -210,6 +156,14 @@ def test_models_route_returns_generation_options(api):
     response = client.get("/api/v1/models")
     assert response.status_code == 200
     assert response.json()[0]["available"] is True
+
+
+def test_library_download_url_uses_short_expiry(api):
+    client, _, storage, _ = api
+    response = client.get("/api/v1/library/source-1/download-url")
+    assert response.status_code == 200
+    assert response.json() == {"url": "https://storage.example/notes.txt", "expiresIn": 300}
+    storage.presigned_url.assert_awaited_once_with("users/student-1/notes.txt", expires=300)
 
 
 def test_healthz_route_matches_compose_healthcheck(api, monkeypatch):

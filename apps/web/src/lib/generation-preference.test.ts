@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPill } from '@/lib/api';
 import { getPreferredGeneration, setPreferredGeneration } from '@/lib/generation-preference';
 
+vi.mock('@/lib/session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/session')>()),
+  authenticatedFetch: (path: string, init?: RequestInit) => fetch(path, init),
+}));
+
 afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();

@@ -6,11 +6,11 @@ This page describes the current implementation. See the [backend guide](backend.
 
 | Component | Responsibility |
 | --- | --- |
-| Next.js | Public landing page and read-only example; gated development workspace with Pill creation, collections, source library, reading, practice, progress polling, chat, and export |
-| FastAPI | Validate input, scope data access by the development user ID, store uploads, queue generation, expose artifacts, answer chat, and build exports |
-| Redis | Celery broker and result backend; the task payload contains the Pill ID |
+| Next.js | Public landing page and read-only example; authenticated workspace with Pill creation, collections, source library, reading, practice, progress polling, chat, and export |
+| FastAPI | Validate input, authenticate users, manage rotating JWT sessions, scope data access by verified user ID, store uploads, queue generation, expose artifacts, answer chat, and build exports |
+| Redis | Celery broker/result backend and auth rate limiting; the task payload contains the Pill ID |
 | Celery | Extract sources, analyze every chunk, index embeddings, synthesize notes and selected extras, render PNG visuals, and optionally generate 3D artifacts |
-| MongoDB + Atlas Vector Search | Collections, Pill metadata/settings/progress/artifacts, source chunks and embeddings, and separate 3D scene documents |
+| MongoDB + Atlas Vector Search | Users, sessions, OAuth/email transactions, collections, Pill metadata/settings/progress/artifacts, source chunks and embeddings, and separate 3D scene documents |
 | S3-compatible object storage | Original uploads, canonical extracted JSON, and generated PNG visuals; local Compose uses SeaweedFS |
 | Docling | Parse documents/images with OCR and retain canonical JSON; extracted Markdown sections supply generation text |
 | faster-whisper | Transcribe uploaded audio/video with the configured Whisper model, default `small`, retaining timestamps |
@@ -20,6 +20,10 @@ This page describes the current implementation. See the [backend guide](backend.
 | Interactive 3D | Use the configured Ollama generation model for a cited spatial brief and `OPENAI_3D_MODEL` for bounded Three.js scene code |
 
 The generation catalog supports configured Ollama, Gemma 4 26B, OpenAI GPT-5.4 variants, and Anthropic Claude Sonnet 5.5. `/api/v1/models` reports availability based on installed Ollama models, embeddings, and configured server keys.
+
+## Frontend data
+
+TanStack Query owns workspace server data with user-scoped keys, targeted mutation invalidation, cancellation, and visibility-aware progress polling. Access tokens stay in memory, refresh cookies are HttpOnly, and private caches clear on logout/account changes. Sonner provides success, error, and warning feedback; local UI state stays in React.
 
 ## Processing sequence
 
@@ -45,13 +49,13 @@ Each worker task runs its asynchronous database work on one event loop and close
 
 ## Current boundaries and original design differences
 
-- Development identity uses a trusted `X-User-Id` header or configured demo identity. Real authentication is not implemented.
+- Email/password and Google authenticate verified accounts. FastAPI validates access JWTs against active MongoDB sessions; refresh JWTs rotate in HttpOnly cookies. See the [authentication guide](authentication.md).
 - The library lists attached sources and supports original-file download/deletion. Selecting an existing library file for a new Pill is not implemented.
 - Video processing currently covers the audio transcript. Frame sampling and visual slide analysis remain planned.
 - YouTube ingestion requires accessible English captions; it does not fall back to downloading/transcribing video.
 - Canonical extraction JSON, original files, and PNGs are in object storage. Generated structured notes are in MongoDB; ZIP export is built during the HTTP request.
 - Embedding/indexing is sequential with source analysis and synthesis, rather than a parallel background branch.
 - Source locators include transcript/caption timestamps and Docling-derived section labels. Citations show saved excerpts; opening every original at an exact page or timestamp is not implemented.
-- MongoDB Vector Search is an Atlas deployment prerequisite. The README documents the default 768-dimensional embedding index; hardware, concurrency sizing, authentication, and production storage deployment remain deployment decisions.
+- MongoDB Vector Search is an Atlas deployment prerequisite. The README documents the default 768-dimensional embedding index; hardware, concurrency sizing, and production storage deployment remain deployment decisions.
 
 The HTML prototypes and original diagram gallery remain design artifacts. Their proposed flows include capabilities beyond this implementation.

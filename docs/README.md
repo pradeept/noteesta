@@ -14,3 +14,5 @@ The three UI directions share sample content and behavior, with different layout
 
 The SVG diagrams and Mermaid sources preserve the original proposed flows, including planned file reuse, authentication, video-frame sampling, and export storage. The architecture and interaction guides describe what the current implementation actually does. The original [hackathon plan](../plan.md) records product intent; it is not a feature-completion checklist.
 
+
+- [Authentication and frontend data](authentication.md): account setup, Google/Resend configuration, token lifecycle, caching, and local reset.

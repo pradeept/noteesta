@@ -20,8 +20,20 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000"]
     )
-    allow_demo_user: bool = True
-    demo_user_id: str = "demo-user"
+    # A generated process-local key is allowed only for local development.
+    jwt_secret: str = ""
+    jwt_issuer: str = "noteesta"
+    jwt_audience: str = "noteesta-api"
+    access_token_minutes: int = Field(default=15, ge=1, le=60)
+    refresh_token_days: int = Field(default=30, ge=1, le=90)
+    web_url: str = "http://localhost:3000"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
+    email_adapter: str = "local"
+    resend_api_key: str = ""
+    email_from: str = "Noteesta <accounts@noteesta.com>"
+    local_email_directory: str = ".local/emails"
     max_upload_bytes: int = 100 * 1024 * 1024
 
     mongodb_uri: str = "mongodb://localhost:27017"

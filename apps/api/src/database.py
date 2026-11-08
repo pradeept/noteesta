@@ -11,7 +11,7 @@ _client: AsyncMongoClient | None = None
 def get_client() -> AsyncMongoClient:
     global _client
     if _client is None:
-        _client = AsyncMongoClient(get_settings().mongodb_uri)
+        _client = AsyncMongoClient(get_settings().mongodb_uri, tz_aware=True)
     return _client
 
 
@@ -26,6 +26,14 @@ async def database_dependency() -> AsyncIterator[AsyncDatabase]:
 
 async def ensure_indexes() -> None:
     database = get_database()
+    await database.users.create_index("email", unique=True)
+    await database.users.create_index(
+        "google_sub", unique=True, partialFilterExpression={"google_sub": {"$type": "string"}}
+    )
+    await database.auth_sessions.create_index("user_id")
+    for table in (database.auth_sessions, database.auth_email_tokens, database.auth_oauth):
+        await table.create_index("expires_at", expireAfterSeconds=0)
+    await database.auth_email_tokens.create_index("user_id")
     await database.pills.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
     await database.collections.create_index(
         [("user_id", ASCENDING), ("name", ASCENDING)], unique=True

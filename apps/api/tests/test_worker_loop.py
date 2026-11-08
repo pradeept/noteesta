@@ -10,7 +10,7 @@ from workers import tasks
 class LoopBoundClient:
     instances: list["LoopBoundClient"] = []
 
-    def __init__(self, uri: str) -> None:
+    def __init__(self, uri: str, **_options) -> None:
         self.loop = None
         self.closed = False
         self.instances.append(self)

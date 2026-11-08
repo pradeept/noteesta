@@ -1,6 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { UserMenu } from '@/components/user-menu';
+import {
+  usePills,
+  useCollections,
+  useLibrary,
+  useModels,
+  useWorkspaceMutations,
+} from '@/lib/queries';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,36 +27,33 @@ import { CreatePillDialog } from '@/components/create-pill-dialog';
 import { FileLibraryDialog } from '@/components/file-library-dialog';
 import { ThemePicker } from '@/components/appearance-controls';
 import { SourceIcon } from '@/components/source-icon';
-import {
-  createPill,
-  listCollections,
-  listGenerationOptions,
-  listLibrary,
-  listPills,
-} from '@/lib/api';
 import { getPreferredGeneration, setPreferredGeneration } from '@/lib/generation-preference';
-import { demoPill } from '@/lib/fixtures';
-import type {
-  Collection,
-  CreatePillInput,
-  GenerationOption,
-  LibraryEntry,
-  StudyPill,
-} from '@/lib/types';
-
-const enableDemo = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA !== 'false';
+import type { CreatePillInput, StudyPill } from '@/lib/types';
 
 export function HomeDashboard() {
   const router = useRouter();
-  const [pills, setPills] = useState<StudyPill[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [sources, setSources] = useState<LibraryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [sourceError, setSourceError] = useState('');
-  const [generationOptions, setGenerationOptions] = useState<GenerationOption[]>([]);
-  const [generationValue, setGenerationValue] = useState('');
-  const [generationError, setGenerationError] = useState('');
+  const pillsQuery = usePills();
+  const collectionsQuery = useCollections();
+  const libraryQuery = useLibrary();
+  const modelsQuery = useModels();
+  const mutations = useWorkspaceMutations();
+  const pills = pillsQuery.data ?? [];
+  const collections = collectionsQuery.data ?? [];
+  const sources = libraryQuery.data ?? [];
+  const loading = pillsQuery.isPending;
+  const error = pillsQuery.error?.message ?? collectionsQuery.error?.message ?? '';
+  const sourceError = libraryQuery.error?.message ?? '';
+  const generationOptions = modelsQuery.data ?? [];
+  const generationError = modelsQuery.error?.message ?? '';
+  const [selectedGeneration, setGenerationValue] = useState('');
+  const savedGeneration = getPreferredGeneration();
+  const preferred = generationOptions.find(
+    (option) =>
+      option.provider === savedGeneration?.provider && option.model === savedGeneration?.model,
+  );
+  const defaultOption = preferred ?? generationOptions[0];
+  const generationValue =
+    selectedGeneration || (defaultOption ? `${defaultOption.provider}:${defaultOption.model}` : '');
   const [createOpen, setCreateOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null);
@@ -57,71 +63,19 @@ export function HomeDashboard() {
       : 'grove',
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.allSettled([listPills(), listCollections(), listLibrary()]).then(
-      ([pillResult, collectionResult, sourceResult]) => {
-        if (cancelled) return;
-        if (pillResult.status === 'fulfilled') setPills(pillResult.value);
-        else
-          setError('Your Study Pills could not be loaded. Check the API connection and refresh.');
-        if (collectionResult.status === 'fulfilled') setCollections(collectionResult.value);
-        else
-          setError('Your collections could not be loaded. Check the API connection and refresh.');
-        if (sourceResult.status === 'fulfilled') setSources(sourceResult.value);
-        else setSourceError('Source preview is unavailable right now.');
-        setLoading(false);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listGenerationOptions()
-      .then((options) => {
-        if (cancelled) return;
-        setGenerationOptions(options);
-        const saved = getPreferredGeneration();
-        const preferred =
-          saved &&
-          options.find(
-            (option) => option.provider === saved.provider && option.model === saved.model,
-          );
-        const defaultOption = options[0];
-        setGenerationValue(
-          preferred
-            ? `${preferred.provider}:${preferred.model}`
-            : defaultOption
-              ? `${defaultOption.provider}:${defaultOption.model}`
-              : '',
-        );
-        setGenerationError('');
-      })
-      .catch(() => {
-        if (!cancelled)
-          setGenerationError('Model choices could not be loaded. Refresh to try again.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function handleCreate(input: CreatePillInput) {
     const selected = generationOptions.find(
       (option) => `${option.provider}:${option.model}` === generationValue,
     );
     if (!selected?.available) throw new Error(selected?.reason ?? 'Choose an available model.');
-    const pill = await createPill({
+    const pill = await mutations.create.mutateAsync({
       ...input,
       generation: {
         provider: selected.provider,
         model: selected.model,
       },
     });
-    setPills((current) => [pill, ...current]);
+    toast.success('Study Pill created. Your sources are being processed.');
     setCreateOpen(false);
     router.push(`/pills/${pill.id}`);
   }
@@ -132,7 +86,7 @@ export function HomeDashboard() {
     localStorage.setItem('noteesta-palette', value);
   }
 
-  const displayPills = pills.length ? pills : !loading && enableDemo ? [demoPill] : [];
+  const displayPills = pills;
   const processingCount = pills.filter((pill) =>
     ['queued', 'processing'].includes(pill.status),
   ).length;
@@ -148,6 +102,7 @@ export function HomeDashboard() {
       <header className="home-header">
         <Brand href="/workspace" />
         <div className="home-header-actions">
+          <UserMenu />
           <ThemePicker value={palette} onChange={choosePalette} />
           <button
             type="button"

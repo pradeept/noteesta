@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.auth.router import router as auth_router
+from src.auth.security import validate_auth_settings
 from src.collections.router import router as collections_router
 from src.config import get_settings
 from src.database import close_database, ensure_indexes
@@ -16,6 +18,7 @@ from src.storage import get_storage
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    validate_auth_settings()
     await ensure_indexes()
     await get_storage().ensure_bucket()
     yield
@@ -32,10 +35,21 @@ settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-User-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Noteesta-Client"],
 )
+
+
+@app.middleware("http")
+async def private_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(pills_router, prefix="/api/v1")
 app.include_router(collections_router, prefix="/api/v1")

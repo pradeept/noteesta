@@ -36,7 +36,7 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
    ```bash
    cd apps/api
    uv sync --extra dev
-   cd ..
+   cd ../..
    ```
 
 4. With the MongoDB Atlas URI set in `apps/api/.env`, start Redis and SeaweedFS:
@@ -61,13 +61,13 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 
 The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
 
-Start Ollama with the configured generation and embedding models available. Every generation provider requires Ollama embeddings; interactive 3D also uses the configured Ollama generation model for its spatial brief. `GET http://localhost:8000/api/v1/healthz` reports MongoDB, object-storage, and Celery worker connectivity. Inspect its JSON `status` and `dependencies`: a `failing` response currently still uses HTTP 200. Model availability is reported separately by `GET /api/v1/models`.
+Start Ollama with the configured generation and embedding models available. Every generation provider requires Ollama embeddings; interactive 3D also uses the configured Ollama generation model for its spatial brief. `GET http://localhost:8000/api/v1/healthz` reports MongoDB, object-storage, and Celery worker connectivity. Inspect its JSON `status` and `dependencies`: a `failing` response currently still uses HTTP 200. Model availability is reported separately by authenticated `GET /api/v1/models`.
 
-The public homepage at `/` explains Noteesta, and `/app` serves the read-only photosynthesis example, including an interactive 3D chloroplast schematic, without API calls. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Keep this setting off in public deployments until real authentication and authorization are in place. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
+The public homepage at `/` explains Noteesta, and `/app` serves the read-only photosynthesis example, including an interactive 3D chloroplast schematic, without API calls. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Create an account at `/register`, then open the verification link delivered by the configured email adapter. Email/password and Google sign-in protect the workspace; the public example stays available without signing in. See the [authentication guide](docs/authentication.md) for Google, Resend, session, and caching setup. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
 
 The workspace's Generation model menu sets the default for new Study Pills. Each Pill saves its selection, so retrying it or asking its grounded chat uses the same provider and model. Keep the Ollama server running for embeddings with every choice. The menu exposes `gemma4:26b` after `ollama pull gemma4:26b`; OpenAI and Anthropic choices require server keys. `GET /api/v1/models` reports which choices are available. Interactive 3D uses a separate handoff through the configured Ollama model and scene generation through `OPENAI_3D_MODEL`.
 
-The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The FastAPI service currently trusts a caller-provided user ID; do not expose it as a public service without replacing that mechanism with real authentication. The local Compose setup binds the API port to loopback for this reason.
+The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The API requires a Noteesta access bearer token for private resources, including model discovery. Production requires a stable `JWT_SECRET`, HTTPS, exact credentialed CORS origins, and Resend configuration. The local Compose setup binds the API port to loopback.
 
 You can also build the API, worker, and frontend with `docker compose --env-file apps/web/.env --env-file apps/api/.env up --build`. Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `apps/api/.env`. API and worker containers read `apps/api/.env`. The web image receives public frontend settings as build arguments and the workspace flag at runtime. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file. For Vercel, set the project's Root Directory to `apps/web`.
 
@@ -86,7 +86,10 @@ The backend values most likely to change are:
 - `OPENAI_API_KEY`: required for OpenAI Study Pill generation and for Interactive 3D scene generation. The rest of the Pill remains available if 3D generation fails or the source material does not support a spatial model.
 - `OPENAI_3D_MODEL`: OpenAI model used for scene code, default `gpt-5.4`.
 - `ANTHROPIC_API_KEY`: required to select Claude Sonnet 5.5 for Study Pill generation.
-- `ALLOW_DEMO_USER`: permits the `demo-user` development identity. Disable this when real authentication is connected.
+- `JWT_SECRET`: stable secret of at least 32 characters; generate one with `openssl rand -hex 32`.
+- `WEB_URL` and `CORS_ORIGINS`: frontend origin, including the development port.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: optional Google OAuth setup.
+- `EMAIL_ADAPTER`: `local` for private development previews in `apps/api/.local/emails/`, or `resend` with `RESEND_API_KEY` and `EMAIL_FROM` for real delivery. Local preview paths are relative to the API process working directory.
 
 Generated 3D JavaScript and its cited handoff are stored in the `pill_three_d` MongoDB collection under the Pill ID. The Pill document stores only the 3D status, description, and citations. The owner-scoped `GET /api/v1/pills/{pill_id}/three-d` route loads the code when the 3D tab opens. The public example uses a bundled scene and does not call OpenAI. ZIP export does not include interactive models.
 
