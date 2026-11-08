@@ -82,4 +82,6 @@ uv run pytest
 uv build --wheel
 ```
 
+If Ruff, Black, or pytest is unavailable, run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
+
 Unit and route tests mock external services. The HTTP regression tests cover file/YouTube creation, collection ownership and persistence, bulk moves and deletion, library operations, model listing, and the health route. Run real ingestion and generation separately with the required services and models available. Promptfoo suites evaluate prompts against live Ollama and are independent of pytest.

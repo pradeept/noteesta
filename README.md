@@ -130,7 +130,9 @@ uv run pytest
 
 Black formats backend Python files with `cd apps/api && uv run black .`; Ruff remains the lint checker.
 
-Run `uv sync --extra dev` in `apps/api/` first to install the test and lint tools. Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. At the repository root, `pnpm verify` runs all four frontend checks above.
+If Ruff, Black, or pytest is unavailable (for example, `Failed to spawn: ruff`), run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
+
+Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. At the repository root, `pnpm verify` runs all four frontend checks above.
 
 To verify API packaging, run `cd apps/api && uv build --wheel`. The wheel includes `src/`, `workers/`, the `main.py` entrypoint, and `evals/prompts/`.
 
