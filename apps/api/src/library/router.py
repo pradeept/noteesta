@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from src.database import database_dependency
 from src.dependencies.profile import current_user_id
 from src.repository import PillRepository, sources_for_storage
-from src.common.schemas.schemas import LibraryEntry, LibraryPillReference
+from .schemas import LibraryEntry, LibraryPillReference
 from src.storage import get_storage
 
 router = APIRouter(prefix="/library", tags=["library"])
@@ -62,16 +62,12 @@ async def delete_library_source(
         raise HTTPException(status_code=410, detail="The original file has already been deleted.")
 
     source.original_available = False
-    await PillRepository(database).update(
-        pill.id, sources=sources_for_storage(pill.sources)
-    )
+    await PillRepository(database).update(pill.id, sources=sources_for_storage(pill.sources))
     try:
         await get_storage().delete_object(source.object_key)
     except Exception:
         source.original_available = True
-        await PillRepository(database).update(
-            pill.id, sources=sources_for_storage(pill.sources)
-        )
+        await PillRepository(database).update(pill.id, sources=sources_for_storage(pill.sources))
         raise
     return LibraryEntry(
         source_id=source.id,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from src.generation import available_options
-from src.common.schemas.schemas import GenerationOption
+from src.models.schemas import GenerationOption
 
 router = APIRouter(tags=["models"])
 

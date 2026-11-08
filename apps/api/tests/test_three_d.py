@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.repository import PillRepository, _serialize
-from src.routes.pills import get_three_d_artifact
+from src.pills.router import get_three_d_artifact
 from src.common.schemas.schemas import Source, StudyArtifact, StudyPill, ThreeDMetadata
 from src.services.three_d import prepare_three_d, validate_scene_code
 
@@ -29,9 +29,7 @@ async def test_unsuitable_handoff_does_not_call_openai(monkeypatch: pytest.Monke
 
     monkeypatch.setattr("noteesta_api.services.three_d.generate_scene_code", unexpected)
     metadata, code, handoff = await prepare_three_d(
-        FakeOrchestrator(
-            {"suitable": False, "reason": "No spatial structure in the sources."}
-        ),
+        FakeOrchestrator({"suitable": False, "reason": "No spatial structure in the sources."}),
         "grounded notes",
         {"lecture": source()},
     )

@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_settings
 from src.database import close_database, ensure_indexes
-from src.routes.collections import router as collections_router
-from src.health.router import  health_router
-from src.routes.library import router as library_router
-from src.routes.models import router as models_router
+from src.collections.router import router as collections_router
+from src.health.router import health_router
+from src.library.router import router as library_router
+from src.models.router import router as models_router
 from src.pills.router import pills_router
 from src.storage import get_storage
 

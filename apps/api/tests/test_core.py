@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from src.config import Settings
 from src.prompts import render_prompt
 from src.repository import _deserialize, _serialize
-from src.routes.pills import _is_youtube_url, update_study_pill
+from src.pills.router import _is_youtube_url, update_study_pill
 from src.common.schemas.schemas import (
     Citation,
     Source,

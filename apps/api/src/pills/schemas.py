@@ -1,15 +1,20 @@
-from src.common.schemas.schemas import ApiModel, MaterialKey, GenerationSelection, StudyArtifact
+from src.common.schemas.schemas import ApiModel, MaterialKey, StudyArtifact
+from src.models.schemas import GenerationSelection
 
 from fastapi import Form, UploadFile, File
 from datetime import datetime, UTC
 from typing import Literal, Any, Annotated
 from pydantic import Field, model_validator
+from src.config import get_settings
+
 
 def utc_now():
     return datetime.now(UTC)
 
+
 def default_generation() -> GenerationSelection:
     return GenerationSelection(provider="ollama", model=get_settings().ollama_model)
+
 
 class Source(ApiModel):
     id: str

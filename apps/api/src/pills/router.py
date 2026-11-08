@@ -20,11 +20,11 @@ from src.common.schemas.schemas import (
     AskRequest,
     BulkPillCollectionUpdate,
     ChatAnswer,
-    GenerationSelection,
     MaterialKey,
     Source,
     ThreeDCode,
 )
+from src.models.schemas import GenerationSelection
 from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.services.chat import answer_question
 from src.services.exporting import build_export

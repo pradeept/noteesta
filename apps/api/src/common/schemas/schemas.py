@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -6,10 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 from src.config import get_settings
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 class ApiModel(BaseModel):
@@ -28,21 +23,6 @@ class MaterialKey(StrEnum):
     true_false = "trueFalse"
     roadmap = "roadmap"
     three_d = "threeD"
-
-
-class GenerationSelection(ApiModel):
-    provider: Literal["ollama", "openai", "anthropic"]
-    model: str = Field(min_length=1)
-
-
-def default_generation() -> GenerationSelection:
-    return GenerationSelection(provider="ollama", model=get_settings().ollama_model)
-
-
-class GenerationOption(GenerationSelection):
-    label: str
-    available: bool
-    reason: str | None = None
 
 
 class Citation(ApiModel):
@@ -174,45 +154,9 @@ class StudyArtifact(ApiModel):
     three_d: ThreeDMetadata | None = None
 
 
-CollectionColor = Literal["moss", "ocean", "terracotta", "plum", "gold", "slate"]
-
-
-class Collection(ApiModel):
-    id: str
-    user_id: str = Field(exclude=True)
-    name: str = Field(min_length=1, max_length=60)
-    color: CollectionColor = "moss"
-    created_at: datetime = Field(default_factory=utc_now)
-
-
-class CollectionCreate(ApiModel):
-    name: str = Field(min_length=1, max_length=60)
-    color: CollectionColor = "moss"
-
-
-class CollectionUpdate(ApiModel):
-    name: str | None = Field(default=None, min_length=1, max_length=60)
-    color: CollectionColor | None = None
-
-
 class BulkPillCollectionUpdate(ApiModel):
     pill_ids: list[str] = Field(min_length=1, max_length=100)
     collection_id: str | None = None
-
-
-class LibraryPillReference(ApiModel):
-    id: str
-    title: str
-
-
-class LibraryEntry(ApiModel):
-    source_id: str
-    name: str
-    kind: Literal["audio", "video", "pdf", "document", "image", "youtube"]
-    detail: str
-    original_available: bool
-    youtube_url: str | None = None
-    pills: list[LibraryPillReference]
 
 
 class AskRequest(ApiModel):

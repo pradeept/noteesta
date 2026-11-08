@@ -8,7 +8,7 @@ from pymongo.errors import DuplicateKeyError
 
 from src.database import database_dependency
 from src.dependencies.profile import current_user_id
-from src.common.schemas.schemas import Collection, CollectionCreate, CollectionUpdate
+from .schemas import Collection, CollectionCreate, CollectionUpdate
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -33,9 +33,7 @@ async def create_collection(
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail="Collection name cannot be empty.")
-    collection = Collection(
-        id=str(uuid4()), user_id=user_id, name=name, color=body.color
-    )
+    collection = Collection(id=str(uuid4()), user_id=user_id, name=name, color=body.color)
     document = collection.model_dump(mode="json", by_alias=False)
     document["user_id"] = user_id
     document["_id"] = document.pop("id")
@@ -76,9 +74,7 @@ async def update_collection(
         ) from error
     if not result.matched_count:
         raise HTTPException(status_code=404, detail="Collection not found.")
-    document = await database.collections.find_one(
-        {"_id": collection_id, "user_id": user_id}
-    )
+    document = await database.collections.find_one({"_id": collection_id, "user_id": user_id})
     return Collection.model_validate({**document, "id": document["_id"]})
 
 
@@ -88,9 +84,7 @@ async def delete_collection(
     user_id: Annotated[str, Depends(current_user_id)],
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
 ) -> None:
-    result = await database.collections.delete_one(
-        {"_id": collection_id, "user_id": user_id}
-    )
+    result = await database.collections.delete_one({"_id": collection_id, "user_id": user_id})
     if not result.deleted_count:
         raise HTTPException(status_code=404, detail="Collection not found.")
     await database.pills.update_many(

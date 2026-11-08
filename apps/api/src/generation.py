@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 
 from src.config import get_settings
 from src.llm import OllamaClient
-from src.common.schemas.schemas import GenerationOption, GenerationSelection
+from src.models.schemas import GenerationOption, GenerationSelection
 
 
 class GenerationClient(Protocol):
