@@ -9,10 +9,11 @@ WORKDIR /workspace/apps/api
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY apps/api/noteesta_api ./noteesta_api
+COPY apps/api/main.py ./main.py
+COPY apps/api/src ./src
 COPY apps/api/workers ./workers
 COPY apps/api/evals/prompts ./evals/prompts
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
-CMD ["uv", "run", "fastapi", "run", "noteesta_api/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]

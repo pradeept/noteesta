@@ -1,4 +1,5 @@
 from typing import Literal
+
 from pydantic import Field
 
 from src.common.schemas.schemas import ApiModel

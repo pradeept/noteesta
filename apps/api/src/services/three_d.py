@@ -7,8 +7,8 @@ from typing import Any
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from src.config import get_settings
 from src.common.schemas.schemas import Citation, Source, ThreeDMetadata
+from src.config import get_settings
 from src.services.orchestration import StudyPillOrchestrator
 
 MAX_JAVASCRIPT_BYTES = 64 * 1024
@@ -116,9 +116,7 @@ async def prepare_three_d(
     }
     javascript = await generate_scene_code(handoff)
     return (
-        ThreeDMetadata(
-            status="ready", title=title, description=description, citations=citations
-        ),
+        ThreeDMetadata(status="ready", title=title, description=description, citations=citations),
         javascript,
         handoff,
     )

@@ -4,8 +4,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
-from src.config import get_settings
-
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(

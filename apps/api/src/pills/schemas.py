@@ -1,42 +1,15 @@
-from src.common.schemas.schemas import ApiModel, MaterialKey, StudyArtifact
-from src.models.schemas import GenerationSelection
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
-from fastapi import Form, UploadFile, File
-from datetime import datetime, UTC
-from typing import Literal, Any, Annotated
-from pydantic import Field, model_validator
-from src.config import get_settings
+from fastapi import File, Form, UploadFile
+from pydantic import Field
+
+from src.common.schemas.schemas import ApiModel, MaterialKey, Source, StudyArtifact
+from src.models.schemas import GenerationSelection, default_generation
 
 
 def utc_now():
     return datetime.now(UTC)
-
-
-def default_generation() -> GenerationSelection:
-    return GenerationSelection(provider="ollama", model=get_settings().ollama_model)
-
-
-class Source(ApiModel):
-    id: str
-    name: str
-    kind: Literal["audio", "video", "pdf", "document", "image", "youtube"]
-    detail: str
-    status: Literal["uploaded", "processing", "ready", "failed"] = "uploaded"
-    excerpt: str | None = None
-    object_key: str | None = Field(default=None, exclude=True)
-    url: str | None = Field(default=None, exclude=True)
-    original_available: bool = True
-
-    @model_validator(mode="before")
-    @classmethod
-    def youtube_source_has_no_stored_file(cls, values: Any) -> Any:
-        if (
-            isinstance(values, dict)
-            and values.get("kind") == "youtube"
-            and "original_available" not in values
-        ):
-            return {**values, "original_available": False}
-        return values
 
 
 class StudyPill(ApiModel):

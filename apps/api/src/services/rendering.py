@@ -23,9 +23,7 @@ def render_visual(visual: VisualSpec) -> bytes:
             y = 150 + index * 85
             width = int(900 * item.value / maximum)
             draw.text((80, y + 12), item.label, fill=ink, font=small)
-            draw.rounded_rectangle(
-                (360, y, 360 + width, y + 48), 8, fill=soft, outline=line
-            )
+            draw.rounded_rectangle((360, y, 360 + width, y + 48), 8, fill=soft, outline=line)
             draw.text(
                 (380 + width, y + 12),
                 f"{item.value:g}{item.unit or ''}",

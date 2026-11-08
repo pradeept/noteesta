@@ -1,6 +1,7 @@
-from pydantic import Field
+from datetime import UTC, datetime
 from typing import Literal
-from datetime import datetime, UTC
+
+from pydantic import Field
 
 from src.common.schemas.schemas import ApiModel
 

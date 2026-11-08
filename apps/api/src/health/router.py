@@ -1,6 +1,7 @@
 from fastapi import APIRouter
-from src.health.schemas import HealthResponse
+
 from src.database import ping_database
+from src.health.schemas import HealthResponse
 from src.storage import ObjectStorage
 from workers.celery_app import celery_app
 

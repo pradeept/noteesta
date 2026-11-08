@@ -8,6 +8,7 @@ from pymongo.errors import DuplicateKeyError
 
 from src.database import database_dependency
 from src.dependencies.profile import current_user_id
+
 from .schemas import Collection, CollectionCreate, CollectionUpdate
 
 router = APIRouter(prefix="/collections", tags=["collections"])

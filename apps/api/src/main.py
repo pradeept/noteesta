@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.collections.router import router as collections_router
 from src.config import get_settings
 from src.database import close_database, ensure_indexes
-from src.collections.router import router as collections_router
 from src.health.router import health_router
 from src.library.router import router as library_router
 from src.models.router import router as models_router

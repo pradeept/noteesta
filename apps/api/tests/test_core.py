@@ -3,18 +3,17 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.config import Settings
-from src.prompts import render_prompt
-from src.repository import _deserialize, _serialize
-from src.pills.router import _is_youtube_url, update_study_pill
 from src.common.schemas.schemas import (
     Citation,
     Source,
-    StudyPill,
-    StudyPillUpdate,
     VisualNode,
     VisualSpec,
 )
+from src.config import Settings
+from src.pills.router import _is_youtube_url, update_study_pill
+from src.pills.schemas import StudyPill, StudyPillUpdate
+from src.prompts import render_prompt
+from src.repository import _deserialize, _serialize
 from src.services.extraction import ExtractedSegment, chunk_segments
 from src.services.orchestration import StudyPillOrchestrator
 from src.services.pipeline import _mcq_target, _mcqs, _merge_mcqs, _note_sections

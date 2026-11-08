@@ -37,9 +37,7 @@ def sources_for_storage(sources: list[Source]) -> list[dict[str, Any]]:
 
 def artifact_for_storage(artifact: StudyArtifact) -> dict[str, Any]:
     payload = artifact.model_dump(mode="json", by_alias=False)
-    for visual_payload, visual in zip(
-        payload["visuals"], artifact.visuals, strict=True
-    ):
+    for visual_payload, visual in zip(payload["visuals"], artifact.visuals, strict=True):
         visual_payload["asset_key"] = visual.asset_key
     return payload
 
@@ -53,9 +51,7 @@ class PillRepository:
         return pill
 
     async def list_for_user(self, user_id: str) -> list[StudyPill]:
-        cursor = self.database.pills.find({"user_id": user_id}).sort(
-            "updated_at", DESCENDING
-        )
+        cursor = self.database.pills.find({"user_id": user_id}).sort("updated_at", DESCENDING)
         return [_deserialize(document) async for document in cursor]
 
     async def get(self, pill_id: str, user_id: str | None = None) -> StudyPill | None:
@@ -71,9 +67,7 @@ class PillRepository:
         return await self.get(pill_id)
 
     async def replace(self, pill: StudyPill) -> StudyPill:
-        await self.database.pills.replace_one(
-            {"_id": pill.id}, _serialize(pill), upsert=True
-        )
+        await self.database.pills.replace_one({"_id": pill.id}, _serialize(pill), upsert=True)
         return pill
 
     async def save_three_d(
@@ -100,6 +94,4 @@ class PillRepository:
         )
 
     async def delete_three_d(self, pill_id: str, user_id: str) -> None:
-        await self.database.pill_three_d.delete_one(
-            {"_id": pill_id, "user_id": user_id}
-        )
+        await self.database.pill_three_d.delete_one({"_id": pill_id, "user_id": user_id})

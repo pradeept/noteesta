@@ -6,14 +6,6 @@ from typing import Any
 
 from langchain_core.documents import Document
 
-from src.config import get_settings
-from src.database import get_database
-from src.generation import generation_client
-from src.repository import (
-    PillRepository,
-    artifact_for_storage,
-    sources_for_storage,
-)
 from src.common.schemas.schemas import (
     Citation,
     Flashcard,
@@ -26,6 +18,14 @@ from src.common.schemas.schemas import (
     ThreeDMetadata,
     TrueFalseQuestion,
     VisualSpec,
+)
+from src.config import get_settings
+from src.database import get_database
+from src.generation import generation_client
+from src.repository import (
+    PillRepository,
+    artifact_for_storage,
+    sources_for_storage,
 )
 from src.services.extraction import (
     canonical_bytes,

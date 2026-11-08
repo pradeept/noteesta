@@ -5,11 +5,13 @@ import httpx
 import pytest
 
 from src import generation
+from src.common.schemas.schemas import AskRequest, ChatAnswer
 from src.config import Settings
 from src.llm import MATERIALS_SCHEMA, NOTES_SCHEMA
+from src.models.schemas import GenerationSelection
+from src.pills import router as pill_routes
+from src.pills.schemas import StudyPill
 from src.repository import _deserialize, _serialize
-from src.routes import pills as pill_routes
-from src.common.schemas.schemas import AskRequest, ChatAnswer, GenerationSelection, StudyPill
 
 
 def test_selection_round_trip_and_legacy_default() -> None:

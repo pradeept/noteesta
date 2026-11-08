@@ -11,11 +11,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import StreamingResponse
 from pymongo.asynchronous.database import AsyncDatabase
 
-from src.config import get_settings
-from src.database import database_dependency
-from src.dependencies.profile import current_user_id
-from src.generation import availability_for, valid_selection
-from src.repository import PillRepository
 from src.common.schemas.schemas import (
     AskRequest,
     BulkPillCollectionUpdate,
@@ -24,8 +19,13 @@ from src.common.schemas.schemas import (
     Source,
     ThreeDCode,
 )
+from src.config import get_settings
+from src.database import database_dependency
+from src.dependencies.profile import current_user_id
+from src.generation import availability_for, valid_selection
 from src.models.schemas import GenerationSelection
 from src.pills.schemas import StudyPill, StudyPillUpdate
+from src.repository import PillRepository
 from src.services.chat import answer_question
 from src.services.exporting import build_export
 from src.storage import get_storage
@@ -46,7 +46,6 @@ async def list_study_pills(
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
 ) -> list[StudyPill]:
     return await PillRepository(database).list_for_user(user_id)
-
 
 
 @pills_router.post("", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED)
@@ -73,7 +72,7 @@ async def create_study_pill(
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail="Generation choice is invalid.") from error
-    
+
     if not valid_selection(generation):
         raise HTTPException(status_code=422, detail="Generation choice is unsupported.")
     if detail_level not in {"concise", "balanced", "detailed"}:
@@ -183,7 +182,7 @@ async def update_study_pill(
     pill = await repository.get(pill_id, user_id)
     if pill is None:
         raise HTTPException(status_code=404, detail="Study Pill not found.")
-    changes = body.model_dump(exclude_unset=True)
+    changes = body.model_dump(exclude_unset=True, by_alias=False)
     if "title" in changes:
         title = (changes["title"] or "").strip()
         if not title:
@@ -309,7 +308,9 @@ async def chat_with_pill(
     )
 
 
-@pills_router.post("/{pill_id}/retry", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED)
+@pills_router.post(
+    "/{pill_id}/retry", response_model=StudyPill, status_code=status.HTTP_202_ACCEPTED
+)
 async def retry_study_pill(
     pill_id: str,
     user_id: Annotated[str, Depends(current_user_id)],

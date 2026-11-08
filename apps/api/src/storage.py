@@ -40,9 +40,7 @@ class ObjectStorage:
         )
 
     async def get_bytes(self, key: str) -> bytes:
-        response = await asyncio.to_thread(
-            self.client.get_object, Bucket=self.bucket, Key=key
-        )
+        response = await asyncio.to_thread(self.client.get_object, Bucket=self.bucket, Key=key)
         return await asyncio.to_thread(response["Body"].read)
 
     async def delete_object(self, key: str) -> None:

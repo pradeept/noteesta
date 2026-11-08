@@ -2,11 +2,11 @@ import json
 
 from pymongo.asynchronous.database import AsyncDatabase
 
+from src.common.schemas.schemas import ChatAnswer, Citation
 from src.generation import generation_client
 from src.llm import CHAT_SCHEMA
-from src.prompts import render_prompt
-from src.common.schemas.schemas import ChatAnswer, Citation
 from src.models.schemas import GenerationSelection
+from src.prompts import render_prompt
 from src.services.rag import StudyPillRetriever
 
 

@@ -8,8 +8,8 @@ from typing import Any
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from src.config import get_settings
 from src.common.schemas.schemas import Source
+from src.config import get_settings
 from src.storage import ObjectStorage
 
 
@@ -78,9 +78,7 @@ def _parse_with_docling(content: bytes, suffix: str) -> ExtractedSource:
         from docling.datamodel.pipeline_options import PdfPipelineOptions, RapidOcrOptions
         from docling.document_converter import DocumentConverter, ImageFormatOption, PdfFormatOption
     except ImportError as error:
-        raise RuntimeError(
-            "Document and image parsing requires `uv sync` in api/."
-        ) from error
+        raise RuntimeError("Document and image parsing requires `uv sync` in api/.") from error
 
     pipeline_options = PdfPipelineOptions(
         do_ocr=True,
@@ -124,9 +122,7 @@ def _transcribe_media(content: bytes, suffix: str) -> ExtractedSource:
     try:
         from faster_whisper import WhisperModel
     except ImportError as error:
-        raise RuntimeError(
-            "Audio and video transcription requires `uv sync` in api/."
-        ) from error
+        raise RuntimeError("Audio and video transcription requires `uv sync` in api/.") from error
 
     settings = get_settings()
     with tempfile.TemporaryDirectory(prefix="noteesta-media-") as directory:
@@ -164,9 +160,7 @@ async def _extract_youtube(source: Source) -> ExtractedSource:
     try:
         import yt_dlp
     except ImportError as error:
-        raise RuntimeError(
-            "YouTube captions require `uv sync` in api/."
-        ) from error
+        raise RuntimeError("YouTube captions require `uv sync` in api/.") from error
     if not source.url:
         raise ValueError("YouTube source is missing its URL")
 
@@ -200,11 +194,7 @@ async def _extract_youtube(source: Source) -> ExtractedSource:
         line = line.strip()
         if " --> " in line:
             current_locator = line.split(" --> ", 1)[0]
-        elif (
-            line
-            and not line.startswith(("WEBVTT", "Kind:", "Language:"))
-            and not line.isdigit()
-        ):
+        elif line and not line.startswith(("WEBVTT", "Kind:", "Language:")) and not line.isdigit():
             clean = re.sub(r"<[^>]+>", "", line)
             if not rows or rows[-1]["locator"] != current_locator:
                 rows.append({"locator": current_locator, "text": clean})
@@ -218,9 +208,7 @@ async def _extract_youtube(source: Source) -> ExtractedSource:
             "title": info.get("title"),
             "segments": rows,
         },
-        segments=[
-            ExtractedSegment(locator=row["locator"], text=row["text"]) for row in rows
-        ],
+        segments=[ExtractedSegment(locator=row["locator"], text=row["text"]) for row in rows],
     )
 
 
