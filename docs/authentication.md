@@ -8,7 +8,7 @@ Noteesta owns its accounts in FastAPI and MongoDB. Email/password and Google sig
 2. Start MongoDB, Redis, and object storage as described in the root README. Auth rate limiting needs Redis even when generation is not running.
 3. In `apps/api/.env`, set a stable `JWT_SECRET` (generate with `openssl rand -hex 32`), `WEB_URL=http://localhost:3000`, and `CORS_ORIGINS=http://localhost:3000`. An empty secret is supported only in development and invalidates sessions on process restart; use a stable secret for multiple API processes.
 4. Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`, start both applications, and open `/register`.
-5. With `EMAIL_ADAPTER=local`, find email previews in `.local/emails/` relative to the API working directory, normally `apps/api/.local/emails/`. Open the verification URL from the JSON message, confirm verification, and sign in. These files contain single-use secrets, are excluded from git, and use private filesystem permissions.
+5. With `EMAIL_ADAPTER=local`, find email previews in `.local/emails/` relative to the API working directory, normally `apps/api/.local/emails/`. Open the verification URL from the JSON message, choose a password to verify your email, and sign in. Registration collects your name and email; no password is activated until you complete verification. These files contain single-use secrets, are excluded from git, and use private filesystem permissions.
 
 The browser must support Web Locks and run on HTTPS or localhost. Keep frontend and API under the same parent domain in production; cookies are host-only on the API. Frontend origins must exactly match CORS configuration. Browser auth POSTs require an allowed `Origin` and `X-Noteesta-Client: web`; private resource requests require `Authorization: Bearer <accessToken>`. The former `X-User-Id` header and demo identity bypass are removed.
 
@@ -22,11 +22,13 @@ http://localhost:8000/api/v1/auth/google/callback
 
 Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in the backend environment. Register the corresponding HTTPS API callback for production. Google uses authorization code with PKCE, nonce, state, and a browser-bound transaction. Request scopes are `openid email profile`; provider tokens are not stored as application sessions.
 
-Returning Google users match by provider subject. Verified matching emails link automatically to an existing account. If that account was unverified, its previous password and email tokens are invalidated; the owner can establish a password with the recovery flow. Verified password accounts retain their password when linked. A conflicting existing Google subject is rejected.
+Returning Google users match by provider subject after the application has recorded proof of ownership for that link. Matching emails link automatically only when Google is authoritative: a verified Gmail address, or a verified Google Workspace address with a nonempty signed `hd` claim. A verified third-party email claim alone does not prove current ownership, as explained in [Google's backend authentication guidance](https://developers.google.com/identity/sign-in/web/backend-auth).
+
+Other Google accounts receive a one-time email confirmation before linking or session creation. Open the link in the browser that started Google sign-in and explicitly confirm it, then continue with Google. The confirmation expires after 30 minutes and is bound to the target provider subject, account email, credential version, prior link state, and a separate HttpOnly browser cookie. A different browser, expired/reused token, password reset, or conflicting identity cannot complete it. Existing third-party Google links without recorded ownership proof also require confirmation once. If the account was unverified, its previous password and email tokens are invalidated; the owner can establish a password with the recovery flow. Verified password accounts retain their password when linked. A conflicting existing Google subject is rejected.
 
 For real email, set `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` to a sender on a Resend-verified domain. Both HTML and plain-text messages are sent using an idempotency key. Delivery failures return a recoverable error; use resend verification or password recovery to request another link.
 
-Retrying signup for an existing unverified account sends another verification email without changing its password or profile. Verified accounts keep the generic signup response without another email. If delivery fails, the API logs the Resend HTTP status and error code without recipients, credentials, message bodies, or verification links. Check Resend's email logs for accepted messages and delivery events; a sending-only API key cannot read those logs through the API.
+Retrying signup for an existing unverified account sends another verification email without changing its profile or activating a password. The email owner chooses a password when confirming the link; this replaces any password on an older unverified account. Activation atomically checks the credential version and unverified status, increments the version, and invalidates other verification links. Verified accounts keep the generic signup response without another email. If delivery fails, the API logs the Resend HTTP status and error code without recipients, credentials, message bodies, or verification links. Check Resend's email logs for accepted messages and delivery events; a sending-only API key cannot read those logs through the API.
 
 Production startup requires `APP_ENV=production`, a `JWT_SECRET` of at least 32 characters, `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and HTTPS `WEB_URL`. Configure exact HTTPS CORS origins and TLS at the API ingress. Configure trusted proxy handling at deployment so rate limiting sees the real client address; the application does not trust arbitrary `X-Forwarded-For` headers. Do not log auth bodies, cookies, authorization headers, or provider responses at the proxy.
 
@@ -36,9 +38,10 @@ All routes are relative to `/api/v1/auth`. JSON field names use camelCase.
 
 | Method | Path | Input / result |
 | --- | --- | --- |
-| POST | `/register` | `email`, `password`, `displayName`; generic 202 response |
+| POST | `/register` | `email`, `displayName`; generic 202 response; password chosen after email proof |
 | POST | `/login` | `email`, `password`; access token and user |
-| POST | `/verify-email` | `token`; verify ownership |
+| POST | `/verify-email` | `token`, `password`; verify ownership and activate the chosen password |
+| POST | `/verify-google-email` | `token` plus browser-binding cookie; confirm email and link the Google subject; no session issued |
 | POST | `/resend-verification` | `email`; generic 202 response |
 | POST | `/forgot-password` | `email`; generic 202 response |
 | POST | `/reset-password` | `token`, `password`; revoke previous sessions |
@@ -49,7 +52,7 @@ All routes are relative to `/api/v1/auth`. JSON field names use camelCase.
 | GET | `/google/start` | Optional `return_to` local path; redirect to Google |
 | GET | `/google/callback` | Browser-bound provider callback |
 
-Login and refresh return `{ accessToken, expiresIn, user }`. User fields are `id`, `email`, `displayName`, `emailVerified`, and `loginMethods`. Passwords accept 12–128 characters and use Argon2 hashes. Verification tokens expire after 24 hours; reset tokens after 30 minutes. Both are stored as hashes, consumed atomically, and require POST confirmation, so link scanners cannot consume them with GET.
+Login and refresh return `{ accessToken, expiresIn, user }`. User fields are `id`, `email`, `displayName`, `emailVerified`, and `loginMethods`. Passwords accept 12–128 characters and use Argon2 hashes. Signup verification tokens expire after 24 hours; reset and Google confirmation tokens after 30 minutes. All are stored as hashes, consumed atomically, separated by purpose, and require POST confirmation, so link scanners cannot consume them with GET.
 
 Access JWTs last 15 minutes and stay in browser memory. Refresh JWTs use an HttpOnly, SameSite=Lax cookie scoped to `/api/v1/auth`, Secure outside development, without a Domain attribute. Each login creates a separate session with an absolute 30-day expiry. Refresh atomically replaces the stored token hash; replay revokes the session. MongoDB checks make logout and password-reset revocation immediate for access tokens too. TTL indexes clean expired records; authorization explicitly checks expiration without waiting for TTL cleanup.
 
@@ -64,6 +67,8 @@ TanStack Query owns server data. Private keys begin with `['user', userId]`; no 
 Active pill details poll every two seconds; lists containing queued/processing work poll every five seconds. Polling pauses in hidden tabs and stops at terminal states. Mutations update returned data and invalidate dependent domain queries without refetching unrelated model availability. Downloads first request an authenticated five-minute signed URL; exports use the authenticated client.
 
 Logout/account changes cancel requests, clear private query caches, and clear saved chat history. Generation preferences and chat storage use versioned user-specific keys. Browser-wide appearance preferences remain available. React owns local UI state; no Zustand store duplicates server/session data. Sonner handles success/error/warning notifications with deduplicated background failures and processing completion events; form validation stays inline.
+
+The sign-in buttons show a small “Last Used” badge for the last successful email/password or Google sign-in in that browser. Only the method name is stored in local storage; it persists after logout and reload, and failed sign-ins do not change it. This hint contains no account identifier or credentials and has no role in authorization.
 
 ## Local data reset
 

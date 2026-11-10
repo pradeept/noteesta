@@ -5,8 +5,9 @@ from pymongo.errors import DuplicateKeyError
 
 
 class FakeTable:
-    def __init__(self, documents=()):
+    def __init__(self, documents=(), *, unique_fields=("email", "google_sub")):
         self.documents = {document["_id"]: deepcopy(document) for document in documents}
+        self.unique_fields = unique_fields
 
     @staticmethod
     def matches(document, query):
@@ -43,7 +44,7 @@ class FakeTable:
         if document["_id"] in self.documents or any(
             document.get(key) is not None and existing.get(key) == document[key]
             for existing in self.documents.values()
-            for key in ("email", "google_sub")
+            for key in self.unique_fields
         ):
             raise DuplicateKeyError("Duplicate key")
         self.documents[document["_id"]] = deepcopy(document)

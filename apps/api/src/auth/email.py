@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 async def send_account_email(email: str, token: str, purpose: str) -> None:
     settings = get_settings()
-    path = "verify-email" if purpose == "verify" else "reset-password"
-    action = "Verify your email" if purpose == "verify" else "Reset your password"
+    path, action = {
+        "verify": ("verify-email", "Verify your email"),
+        "reset": ("reset-password", "Reset your password"),
+        "google": ("verify-google-email", "Confirm your Google sign-in"),
+    }[purpose]
     url = f"{settings.web_url.rstrip('/')}/{path}?{urlencode({'token': token})}"
     payload = {
         "from": settings.email_from,
