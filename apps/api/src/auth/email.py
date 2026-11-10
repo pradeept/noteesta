@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import re
 from html import escape
 from pathlib import Path
 from urllib.parse import urlencode
@@ -8,6 +10,8 @@ import httpx
 
 from src.auth.security import digest, fail
 from src.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 async def send_account_email(email: str, token: str, purpose: str) -> None:
@@ -42,6 +46,21 @@ async def send_account_email(email: str, token: str, purpose: str) -> None:
             )
             response.raise_for_status()
     except httpx.HTTPError as exc:
+        status = None
+        code = type(exc).__name__
+        if isinstance(exc, httpx.HTTPStatusError):
+            status = exc.response.status_code
+            try:
+                error = exc.response.json()
+            except ValueError:
+                error = None
+            name = error.get("name") if isinstance(error, dict) else None
+            if isinstance(name, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name):
+                code = name
+        # Provider messages and bodies can contain recipients or verification links.
+        logger.warning(
+            "Account email delivery failed: provider=resend status=%s code=%s", status, code
+        )
         raise fail(
             "email_unavailable", "Email delivery is unavailable. Please try again.", 503
         ) from exc

@@ -58,6 +58,9 @@ async def register(body: RegisterInput, request: Request, database: Database):
     try:
         await database.users.insert_one(user)
     except DuplicateKeyError:
+        existing = await database.users.find_one({"email": body.email, "email_verified": False})
+        if existing:
+            await send_token(database, existing, "verify")
         return GENERIC
     await send_token(database, user, "verify")
     return GENERIC

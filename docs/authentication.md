@@ -26,6 +26,8 @@ Returning Google users match by provider subject. Verified matching emails link 
 
 For real email, set `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` to a sender on a Resend-verified domain. Both HTML and plain-text messages are sent using an idempotency key. Delivery failures return a recoverable error; use resend verification or password recovery to request another link.
 
+Retrying signup for an existing unverified account sends another verification email without changing its password or profile. Verified accounts keep the generic signup response without another email. If delivery fails, the API logs the Resend HTTP status and error code without recipients, credentials, message bodies, or verification links. Check Resend's email logs for accepted messages and delivery events; a sending-only API key cannot read those logs through the API.
+
 Production startup requires `APP_ENV=production`, a `JWT_SECRET` of at least 32 characters, `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and HTTPS `WEB_URL`. Configure exact HTTPS CORS origins and TLS at the API ingress. Configure trusted proxy handling at deployment so rate limiting sees the real client address; the application does not trust arbitrary `X-Forwarded-For` headers. Do not log auth bodies, cookies, authorization headers, or provider responses at the proxy.
 
 ## Auth API and session behavior

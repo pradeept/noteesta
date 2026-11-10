@@ -117,6 +117,36 @@ def test_generic_registration_and_recovery_responses(auth_api):
     )
 
 
+def test_signup_retry_recovers_from_email_failure_without_changing_account(auth_api, monkeypatch):
+    client, database, directory = auth_api
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            service,
+            "send_account_email",
+            AsyncMock(side_effect=security.fail("email_unavailable", "Try again.", 503)),
+        )
+        assert register(client).status_code == 503
+    original = next(iter(database.users.documents.values())).copy()
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": EMAIL, "password": "a different long password", "displayName": "Changed"},
+    )
+    assert response.status_code == 202
+    assert len(database.users.documents) == 1
+    assert next(iter(database.users.documents.values())) == original
+    token = last_token(directory)
+    assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 200
+    assert login(client).status_code == 200
+
+
+def test_signup_retry_does_not_email_verified_account(auth_api):
+    client, _, directory = auth_api
+    verified_login(auth_api)
+    messages = list(directory.glob("*.json"))
+    assert register(client).status_code == 202
+    assert list(directory.glob("*.json")) == messages
+
+
 @pytest.mark.parametrize(
     "headers",
     [
@@ -329,6 +359,32 @@ def test_production_settings_reject_missing_secret(monkeypatch):
         security.validate_auth_settings()
 
 
+@pytest.mark.parametrize(
+    ("sender", "key", "expected_error"),
+    [
+        ("Noteesta contact@noteesta.com", "re_test", "EMAIL_FROM"),
+        ("Noteesta <contact@noteesta.com>", "", "RESEND_API_KEY"),
+    ],
+)
+def test_resend_settings_reject_invalid_configuration(monkeypatch, sender, key, expected_error):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "email_adapter", "resend")
+    monkeypatch.setattr(settings, "email_from", sender)
+    monkeypatch.setattr(settings, "resend_api_key", key)
+    with pytest.raises(RuntimeError, match=expected_error):
+        security.validate_auth_settings()
+
+
+def test_resend_settings_accept_named_sender(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "email_adapter", "resend")
+    monkeypatch.setattr(settings, "email_from", "Noteesta <contact@noteesta.com>")
+    monkeypatch.setattr(settings, "resend_api_key", "re_test")
+    security.validate_auth_settings()
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", [None, "issuer", "audience", "nonce", "expired", "unverified"])
 async def test_google_validates_signed_identity_claims(monkeypatch, change):
@@ -407,6 +463,28 @@ async def test_resend_delivery_failure_is_recoverable(monkeypatch):
     with pytest.raises(HTTPException) as error:
         await send_account_email(EMAIL, "single-use-test-token", "verify")
     assert error.value.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", ["validation_error", "unsafe secret-recipient@example.com"])
+async def test_resend_rejection_logs_metadata_without_email_secrets(monkeypatch, caplog, name):
+    from src.auth.email import send_account_email
+
+    token = "single-use-test-token"
+    response = httpx.Response(
+        422,
+        json={"name": name, "message": f"{EMAIL} {token} re_secret"},
+        request=httpx.Request("POST", "https://api.resend.com/emails"),
+    )
+    monkeypatch.setattr(get_settings(), "email_adapter", "resend")
+    monkeypatch.setattr(httpx.AsyncClient, "post", AsyncMock(return_value=response))
+    with pytest.raises(HTTPException) as error:
+        await send_account_email(EMAIL, token, "verify")
+    assert error.value.status_code == 503
+    assert "status=422" in caplog.text
+    assert f"code={name if name == 'validation_error' else 'HTTPStatusError'}" in caplog.text
+    for secret in (EMAIL, token, "re_secret", "secret-recipient@example.com"):
+        assert secret not in caplog.text
 
 
 @pytest.mark.asyncio
