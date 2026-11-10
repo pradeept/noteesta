@@ -1,5 +1,16 @@
 export type MaterialKey = 'notes' | 'flashcards' | 'mcqs' | 'trueFalse' | 'roadmap' | 'threeD';
 
+export interface GenerationSelection {
+  provider: 'ollama' | 'openai' | 'anthropic';
+  model: string;
+}
+
+export interface GenerationOption extends GenerationSelection {
+  label: string;
+  available: boolean;
+  reason: string | null;
+}
+
 export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube';
 
 export interface Citation {
@@ -128,6 +139,7 @@ export interface StudyPill {
   progress: number;
   stage?: string;
   selectedMaterials: MaterialKey[];
+  generation: GenerationSelection;
   sources: Source[];
   artifact?: StudyArtifact;
   updatedAt: string;
@@ -152,4 +164,5 @@ export interface CreatePillInput {
   learnerLevel: 'beginner' | 'intermediate' | 'advanced';
   targetExamDate?: string;
   studyHoursPerDay?: number;
+  generation?: GenerationSelection;
 }

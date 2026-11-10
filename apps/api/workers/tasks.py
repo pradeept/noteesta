@@ -5,9 +5,9 @@ import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from pymongo.errors import PyMongoError
 
-from noteesta_api.database import close_database, get_database
-from noteesta_api.repository import PillRepository
-from noteesta_api.services.pipeline import process_pill
+from src.database import close_database, get_database
+from src.repository import PillRepository
+from src.services.pipeline import process_pill
 from workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)

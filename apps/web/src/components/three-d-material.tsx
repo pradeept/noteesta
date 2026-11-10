@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useThreeD } from '@/lib/queries';
 import { CitationButton } from '@/components/citation-button';
 import { ThreeDViewer } from '@/components/three-d-viewer';
-import { getThreeDCode } from '@/lib/api';
 import { demoThreeDJavaScript } from '@/lib/fixtures';
 import type { Citation, ThreeDMetadata } from '@/lib/types';
 
@@ -18,24 +17,9 @@ export function ThreeDMaterial({
   isDemo: boolean;
   onCitation: (citation: Citation) => void;
 }) {
-  const [javascript, setJavascript] = useState<string | null>(isDemo ? demoThreeDJavaScript : null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (isDemo || metadata?.status !== 'ready') return;
-    let cancelled = false;
-    getThreeDCode(pillId)
-      .then((result) => {
-        if (!cancelled) setJavascript(result.javascript);
-      })
-      .catch(() => {
-        if (!cancelled)
-          setError('The saved 3D model could not be loaded. Try refreshing the Pill.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isDemo, metadata?.status, pillId]);
+  const query = useThreeD(pillId, !isDemo && metadata?.status === 'ready');
+  const javascript = isDemo ? demoThreeDJavaScript : query.data?.javascript;
+  const error = query.error?.message;
 
   if (!metadata || metadata.status === 'unavailable') {
     return (

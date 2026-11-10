@@ -3,22 +3,21 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from noteesta_api.config import Settings
-from noteesta_api.prompts import render_prompt
-from noteesta_api.repository import _deserialize, _serialize
-from noteesta_api.routes.pills import _is_youtube_url, update_study_pill
-from noteesta_api.schemas import (
+from src.common.schemas.schemas import (
     Citation,
     Source,
-    StudyPill,
-    StudyPillUpdate,
     VisualNode,
     VisualSpec,
 )
-from noteesta_api.services.extraction import ExtractedSegment, chunk_segments
-from noteesta_api.services.orchestration import StudyPillOrchestrator
-from noteesta_api.services.pipeline import _mcq_target, _mcqs, _merge_mcqs, _note_sections
-from noteesta_api.services.rendering import render_visual
+from src.config import Settings
+from src.pills.router import _is_youtube_url, update_study_pill
+from src.pills.schemas import StudyPill, StudyPillUpdate
+from src.prompts import render_prompt
+from src.repository import _deserialize, _serialize
+from src.services.extraction import ExtractedSegment, chunk_segments
+from src.services.orchestration import StudyPillOrchestrator
+from src.services.pipeline import _mcq_target, _mcqs, _merge_mcqs, _note_sections
+from src.services.rendering import render_visual
 
 
 def test_settings_accept_comma_separated_cors_origins() -> None:

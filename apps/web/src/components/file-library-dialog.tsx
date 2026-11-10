@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { useLibrary, useWorkspaceMutations } from '@/lib/queries';
 import { AlertDialog, Dialog } from 'radix-ui';
 import {
   ArrowSquareOutIcon,
@@ -10,48 +12,25 @@ import {
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react';
-import { deleteLibraryOriginal, libraryDownloadUrl, listLibrary } from '@/lib/api';
 import type { LibraryEntry } from '@/lib/types';
 import { SourceIcon } from '@/components/source-icon';
 
 export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [entries, setEntries] = useState<LibraryEntry[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const loading = open && !loaded;
+  const query = useLibrary(open);
+  const mutations = useWorkspaceMutations();
+  const entries = query.data ?? [];
+  const loading = open && query.isPending;
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<LibraryEntry | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    listLibrary()
-      .then((items) => {
-        if (!cancelled) {
-          setEntries(items);
-          setLoaded(true);
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : 'Files could not be loaded.');
-          setLoaded(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
 
   async function confirmDelete() {
     if (!deleting) return;
     setBusy(true);
     setError('');
     try {
-      const updated = await deleteLibraryOriginal(deleting.sourceId);
-      setEntries((current) =>
-        current.map((entry) => (entry.sourceId === updated.sourceId ? updated : entry)),
-      );
+      await mutations.removeOriginal.mutateAsync(deleting.sourceId);
+      toast.success('Original file deleted.');
       setDeleting(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The file could not be deleted.');
@@ -84,7 +63,7 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
             </div>
             <div className="file-library-list" aria-busy={loading}>
               {loading ? <p className="library-empty">Loading your sources…</p> : null}
-              {!loading && !error && entries.length === 0 ? (
+              {!loading && !error && !query.error && entries.length === 0 ? (
                 <p className="library-empty">
                   Files and YouTube links will appear here when you add them to a Study Pill.
                 </p>
@@ -116,15 +95,29 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                         <ArrowSquareOutIcon size={12} />
                       </a>
                     ) : entry.originalAvailable ? (
-                      <a
-                        href={libraryDownloadUrl(entry.sourceId)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        disabled={mutations.download.isPending}
+                        onClick={() => {
+                          void mutations.download
+                            .mutateAsync(entry.sourceId)
+                            .then((url) => {
+                              const anchor = document.createElement('a');
+                              anchor.href = url;
+                              anchor.rel = 'noreferrer';
+                              anchor.click();
+                            })
+                            .catch((cause: unknown) =>
+                              toast.error(
+                                cause instanceof Error ? cause.message : 'Download unavailable.',
+                              ),
+                            );
+                        }}
                         className="icon-button"
                         aria-label={`Download ${entry.name}`}
                       >
                         <DownloadSimpleIcon size={17} />
-                      </a>
+                      </button>
                     ) : (
                       <span className="file-unavailable">Original removed</span>
                     )}
@@ -142,9 +135,9 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                 </article>
               ))}
             </div>
-            {error ? (
+            {error || query.error ? (
               <p className="form-error" role="alert">
-                {error}
+                {error || query.error?.message}
               </p>
             ) : null}
           </Dialog.Content>
@@ -185,9 +178,9 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                 {busy ? 'Deleting…' : 'Delete original'}
               </button>
             </div>
-            {error ? (
+            {error || query.error ? (
               <p className="form-error" role="alert">
-                {error}
+                {error || query.error?.message}
               </p>
             ) : null}
           </AlertDialog.Content>

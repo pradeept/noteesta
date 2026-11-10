@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { siteUrl } from '@/lib/site-url';
+import { AppProviders } from '@/components/app-providers';
 import './globals.css';
 import './marketing.css';
 
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="alternate" href="/llms.txt" type="text/markdown" title="Noteesta for LLMs" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={GeistSans.variable}>{children}</body>
+      <body className={GeistSans.variable}>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

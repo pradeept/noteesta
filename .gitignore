@@ -21,3 +21,6 @@ dist/
 *.tsbuildinfo
 apps/web/public/three-artifact-runtime.js
 .env.root
+.local/
+playwright-report/
+test-results/

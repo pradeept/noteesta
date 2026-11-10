@@ -18,5 +18,5 @@ export default defineConfig([
     },
   },
   prettier,
-  globalIgnores(['.next/**', 'coverage/**', 'node_modules/**']),
+  globalIgnores(['.next/**', 'coverage/**', 'node_modules/**', 'public/three-artifact-runtime.js']),
 ]);

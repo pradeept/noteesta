@@ -6,9 +6,7 @@ from typing import Any
 from langchain_ollama import ChatOllama
 
 
-def call_api(
-    prompt: str, options: dict[str, Any], context: dict[str, Any]
-) -> dict[str, str]:
+def call_api(prompt: str, options: dict[str, Any], context: dict[str, Any]) -> dict[str, str]:
     """Run one structured-output eval against the configured local Ollama model."""
 
     del context
@@ -26,7 +24,5 @@ def call_api(
     ).invoke(prompt)
     content = response.content
     if isinstance(content, list):
-        content = "".join(
-            item["text"] if isinstance(item, dict) else str(item) for item in content
-        )
+        content = "".join(item["text"] if isinstance(item, dict) else str(item) for item in content)
     return {"output": str(content)}

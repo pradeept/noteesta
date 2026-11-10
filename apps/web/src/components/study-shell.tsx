@@ -2,6 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { UserMenu } from '@/components/user-menu';
+import { useSession } from '@/components/app-providers';
+import {
+  keys,
+  usePills,
+  usePill,
+  useCollections,
+  useCachedSetter,
+  useWorkspaceMutations,
+} from '@/lib/queries';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { AlertDialog } from 'radix-ui';
@@ -31,19 +42,6 @@ import { VisualCanvas } from '@/components/flow-visual';
 import { SourceIcon } from '@/components/source-icon';
 import { StudyMaterials } from '@/components/study-materials';
 import { WikipediaFactCard } from '@/components/wikipedia-fact-card';
-import {
-  askPill,
-  createPill,
-  deleteCollection,
-  exportPill,
-  getPill,
-  listCollections,
-  listPills,
-  movePillsToCollection,
-  retryPill,
-  updatePill,
-} from '@/lib/api';
-import { demoPill } from '@/lib/fixtures';
 import type {
   ChatAnswer,
   Citation,
@@ -53,14 +51,18 @@ import type {
   VisualSpec,
 } from '@/lib/types';
 
-const enableDemo = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA !== 'false';
-
 export function StudyShell({ initialPillId }: { initialPillId: string }) {
   const router = useRouter();
-  const [pills, setPills] = useState<StudyPill[]>([]);
+  const { user } = useSession();
+  const pillsQuery = usePills();
+  const collectionsQuery = useCollections();
+  const mutations = useWorkspaceMutations();
+  const pills = pillsQuery.data ?? [];
+  const setPills = useCachedSetter<StudyPill>(keys.pills(user?.id));
+  const collections = collectionsQuery.data ?? [];
+  const setCollections = useCachedSetter<Collection>(keys.collections(user?.id));
   const [activeId, setActiveId] = useState(initialPillId);
-  const [loadingLibrary, setLoadingLibrary] = useState(true);
-  const [libraryError, setLibraryError] = useState('');
+  const loadingLibrary = pillsQuery.isPending;
   const [createOpen, setCreateOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -81,68 +83,14 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
       ? (document.documentElement.dataset.palette ?? 'grove')
       : 'grove',
   );
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [toast, setToast] = useState('');
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activePill = pills.find((pill) => pill.id === activeId);
-
-  const notify = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 3600);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    listPills()
-      .then((items) => {
-        if (cancelled) return;
-        setPills(
-          initialPillId === demoPill.id && enableDemo
-            ? [...items.filter((item) => item.id !== demoPill.id), demoPill]
-            : items,
-        );
-        setLibraryError('');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        if (initialPillId === demoPill.id && enableDemo) setPills([demoPill]);
-        setLibraryError(
-          'The library could not connect to the API. You can still explore the example.',
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingLibrary(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialPillId]);
-
-  useEffect(() => {
-    listCollections()
-      .then(setCollections)
-      .catch(() => setLibraryError('Collections could not be loaded. Try refreshing the page.'));
-  }, []);
-
-  useEffect(() => {
-    if (!activePill || !['queued', 'processing'].includes(activePill.status)) return;
-    const timer = setTimeout(async () => {
-      try {
-        const updated = await getPill(activePill.id);
-        setPills((current) => current.map((pill) => (pill.id === updated.id ? updated : pill)));
-        if (updated.status === 'ready') notify('Your Study Pill is ready.');
-        if (updated.status === 'failed')
-          notify('Generation stopped. Open the Study Pill to retry.');
-      } catch {
-        setLibraryError('Progress could not be refreshed. Retrying shortly.');
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [activePill, notify]);
+  const pillQuery = usePill(activeId);
+  const libraryError =
+    pillQuery.error?.message ?? pillsQuery.error?.message ?? collectionsQuery.error?.message ?? '';
+  const activePill = pillQuery.data ?? pills.find((pill) => pill.id === activeId);
+  const notify = toast.success;
 
   async function handleCreate(input: CreatePillInput) {
-    const pill = await createPill(input);
+    const pill = await mutations.create.mutateAsync(input);
     setPills((current) => [pill, ...current.filter((item) => item.id !== pill.id)]);
     setActiveId(pill.id);
     router.push(`/pills/${pill.id}`);
@@ -153,7 +101,9 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   async function handleExport() {
     if (!activePill) return;
     try {
-      const blob = activePill.isDemo ? demoMarkdown(activePill) : await exportPill(activePill.id);
+      const blob = activePill.isDemo
+        ? demoMarkdown(activePill)
+        : await mutations.exportPack.mutateAsync(activePill.id);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -164,18 +114,18 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       notify(activePill.isDemo ? 'Demo notes downloaded as Markdown.' : 'Study pack downloaded.');
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : 'The export could not be prepared.');
+      toast.error(cause instanceof Error ? cause.message : 'The export could not be prepared.');
     }
   }
 
   async function handleRetry() {
     if (!activePill || activePill.isDemo) return;
     try {
-      const updated = await retryPill(activePill.id);
+      const updated = await mutations.retry.mutateAsync(activePill.id);
       setPills((current) => current.map((pill) => (pill.id === updated.id ? updated : pill)));
       notify('Generation queued again.');
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : 'Generation could not be retried.');
+      toast.error(cause instanceof Error ? cause.message : 'Generation could not be retried.');
     }
   }
 
@@ -201,13 +151,13 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
       notify('Study Pill details updated in this example.');
       return;
     }
-    const updated = await updatePill(activePill.id, changes);
+    const updated = await mutations.update.mutateAsync({ id: activePill.id, changes });
     setPills((current) => current.map((pill) => (pill.id === updated.id ? updated : pill)));
     notify('Study Pill details saved.');
   }
 
   async function handleMovePills(ids: string[], collectionId: string | null) {
-    const updated = await movePillsToCollection(ids, collectionId);
+    const updated = await mutations.move.mutateAsync({ ids, collectionId });
     const byId = new Map(updated.map((pill) => [pill.id, pill]));
     setPills((current) => current.map((pill) => byId.get(pill.id) ?? pill));
     notify(
@@ -216,7 +166,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   }
 
   async function handleDeleteCollection(id: string) {
-    await deleteCollection(id);
+    await mutations.removeCollection.mutateAsync(id);
     setCollections((current) => current.filter((collection) => collection.id !== id));
     setPills((current) =>
       current.map((pill) =>
@@ -244,7 +194,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
     router.push(`/pills/${id}`);
   }
 
-  if (!activePill && loadingLibrary) {
+  if (!activePill && (loadingLibrary || pillQuery.isPending)) {
     return (
       <main
         className="empty-shell relative flex items-center justify-center min-h-dvh bg-canvas [padding:100px_40px] [&_>_.brand]:absolute [&_>_.brand]:top-[32px] [&_>_.brand]:left-[40px] [&_>_div:last-of-type]:w-[min(600px,_100%)] [&_>_div:last-of-type]:items-center [&_>_div:last-of-type]:pb-[0] [&_>_div:last-of-type]:text-center [&_h1]:text-[40px] [&_h1]:font-semibold [&_h1]:max-w-[none] [&_h1]:leading-[1.18] [&_>_div:last-of-type_>_p]:max-w-[52ch] [&_>_div:last-of-type_>_p]:[margin-inline:auto] [&_>_div:last-of-type_>_svg]:bg-accent-soft [&_>_div:last-of-type_>_svg]:rounded-[14px] [&_>_div:last-of-type_>_svg]:p-4.5 [&_>_div:last-of-type_>_svg]:[box-sizing:content-box] [&_>_div:last-of-type_>_svg]:mb-3 [&_.inline-error]:mt-6 [&_.inline-error]:max-w-[48ch] max-[761px]:[padding:100px_24px] max-[761px]:[&_>_.brand]:top-[24px] max-[761px]:[&_>_.brand]:left-[24px] max-[761px]:[&_h1]:text-[34px] loading-shell"
@@ -294,17 +244,11 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
                 <PlusIcon size={18} /> New Study Pill
               </button>
             ) : null}
-            {!hasPills && enableDemo ? (
-              <button
-                type="button"
-                className="secondary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold"
-                onClick={() => {
-                  router.push(`/pills/${demoPill.id}`);
-                }}
-              >
+            {!hasPills && (
+              <Link href="/app" className="secondary-button">
                 See example
-              </button>
-            ) : null}
+              </Link>
+            )}
           </div>
           {libraryError ? <p className="inline-error">{libraryError}</p> : null}
         </div>
@@ -358,7 +302,10 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
             activeId={activePill?.id ?? ''}
             onSelect={selectPill}
             onCollectionCreated={(collection) =>
-              setCollections((current) => [...current, collection])
+              setCollections((current) => [
+                ...current.filter((item) => item.id !== collection.id),
+                collection,
+              ])
             }
             onCollectionUpdated={(updated) =>
               setCollections((current) =>
@@ -369,23 +316,9 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
             onMove={handleMovePills}
           />
           {loadingLibrary ? <LibrarySkeleton /> : null}
-          {enableDemo ? (
-            <button
-              type="button"
-              className="example-link mt-4 text-muted quiet-button"
-              onClick={() => {
-                setPills((current) =>
-                  current.some((pill) => pill.id === demoPill.id)
-                    ? current
-                    : [...current, demoPill],
-                );
-                setActiveId(demoPill.id);
-                setMobileOpen(false);
-              }}
-            >
-              <BooksIcon size={17} /> See example
-            </button>
-          ) : null}
+          <Link href="/app" className="example-link mt-4 text-muted quiet-button">
+            <BooksIcon size={17} /> See example
+          </Link>
         </div>
         {activePill.status === 'queued' || activePill.status === 'processing' ? (
           <WikipediaFactCard />
@@ -433,6 +366,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
             </p>
           </div>
           <div className="topbar-actions">
+            <UserMenu />
             <ThemePicker value={palette} onChange={choosePalette} />
             <button
               type="button"
@@ -642,9 +576,6 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
         onClose={() => setChatOpen(false)}
         onCitation={setCitation}
       />
-      <div className="toast" role="status" aria-live="polite">
-        {toast}
-      </div>
     </div>
   );
 }
@@ -815,7 +746,9 @@ function ChatPanel({
   onCitation: (citation: Citation) => void;
 }) {
   const [question, setQuestion] = useState('');
-  const chatStorageKey = `noteesta-chat:${pill.id}`;
+  const { user } = useSession();
+  const mutations = useWorkspaceMutations();
+  const chatStorageKey = `noteesta:v2:chat:${user?.id}:${pill.id}`;
   const serializedTurns = useSyncExternalStore(
     useCallback((callback) => subscribeToChat(chatStorageKey, callback), [chatStorageKey]),
     useCallback(() => readChatSnapshot(chatStorageKey), [chatStorageKey]),
@@ -869,7 +802,7 @@ function ChatPanel({
             citations: pill.artifact?.sections[1]?.citations ?? [],
             grounded: true,
           }
-        : await askPill(pill.id, submittedQuestion);
+        : await mutations.chat.mutateAsync({ id: pill.id, question: submittedQuestion });
       saveTurns([...turns, { question: submittedQuestion, answer: result }]);
     } catch (cause) {
       setQuestion(submittedQuestion);

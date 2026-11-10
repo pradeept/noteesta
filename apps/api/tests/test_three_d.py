@@ -3,10 +3,11 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from noteesta_api.repository import PillRepository, _serialize
-from noteesta_api.routes.pills import get_three_d_artifact
-from noteesta_api.schemas import Source, StudyArtifact, StudyPill, ThreeDMetadata
-from noteesta_api.services.three_d import prepare_three_d, validate_scene_code
+from src.common.schemas.schemas import Source, StudyArtifact, ThreeDMetadata
+from src.pills.router import get_three_d_artifact
+from src.pills.schemas import StudyPill
+from src.repository import PillRepository, _serialize
+from src.services.three_d import prepare_three_d, validate_scene_code
 
 
 class FakeOrchestrator:
@@ -27,11 +28,9 @@ async def test_unsuitable_handoff_does_not_call_openai(monkeypatch: pytest.Monke
     async def unexpected(_: dict) -> str:
         raise AssertionError("OpenAI should not be called")
 
-    monkeypatch.setattr("noteesta_api.services.three_d.generate_scene_code", unexpected)
+    monkeypatch.setattr("src.services.three_d.generate_scene_code", unexpected)
     metadata, code, handoff = await prepare_three_d(
-        FakeOrchestrator(
-            {"suitable": False, "reason": "No spatial structure in the sources."}
-        ),
+        FakeOrchestrator({"suitable": False, "reason": "No spatial structure in the sources."}),
         "grounded notes",
         {"lecture": source()},
     )
@@ -47,7 +46,7 @@ async def test_handoff_requires_source_evidence_before_openai(
     async def unexpected(_: dict) -> str:
         raise AssertionError("OpenAI should not be called")
 
-    monkeypatch.setattr("noteesta_api.services.three_d.generate_scene_code", unexpected)
+    monkeypatch.setattr("src.services.three_d.generate_scene_code", unexpected)
     raw = {
         "suitable": True,
         "title": "Amoeba",
@@ -70,7 +69,7 @@ async def test_suitable_handoff_sends_only_cited_brief(monkeypatch: pytest.Monke
         received.update(brief)
         return "function buildArtifact(THREE, scene) { scene.add(new THREE.Group()); }"
 
-    monkeypatch.setattr("noteesta_api.services.three_d.generate_scene_code", fake_generate)
+    monkeypatch.setattr("src.services.three_d.generate_scene_code", fake_generate)
     raw = {
         "suitable": True,
         "title": "Chloroplast",

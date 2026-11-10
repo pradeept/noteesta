@@ -64,6 +64,7 @@ export const demoPill: StudyPill = {
   status: 'ready',
   progress: 100,
   selectedMaterials: ['notes', 'flashcards', 'mcqs', 'trueFalse', 'roadmap', 'threeD'],
+  generation: { provider: 'ollama', model: 'qwen3-vl:8b-instruct' },
   updatedAt: '2026-10-03T08:30:00.000Z',
   processingDurationSeconds: 94,
   isDemo: true,

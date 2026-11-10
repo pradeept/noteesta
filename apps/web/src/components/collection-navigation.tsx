@@ -1,5 +1,8 @@
 'use client';
 
+import { toast } from 'sonner';
+import { useWorkspaceMutations } from '@/lib/queries';
+
 import { useMemo, useState } from 'react';
 import { AlertDialog, Dialog, DropdownMenu, RadioGroup } from 'radix-ui';
 import {
@@ -16,7 +19,6 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import type { Collection, CollectionColor, StudyPill } from '@/lib/types';
-import { createCollection, updateCollection } from '@/lib/api';
 
 const collectionColors: CollectionColor[] = [
   'moss',
@@ -368,6 +370,7 @@ function CollectionEditor({
   onCreated: (collection: Collection) => void;
   onUpdated: (collection: Collection) => void;
 }) {
+  const mutations = useWorkspaceMutations();
   const [name, setName] = useState(collection?.name ?? '');
   const [color, setColor] = useState<CollectionColor>(collection?.color ?? 'moss');
   const [error, setError] = useState('');
@@ -379,10 +382,11 @@ function CollectionEditor({
     setError('');
     try {
       if (collection) {
-        onUpdated(await updateCollection(collection.id, { name, color }));
+        onUpdated(await mutations.saveCollection.mutateAsync({ id: collection.id, name, color }));
       } else {
-        onCreated(await createCollection({ name, color }));
+        onCreated(await mutations.saveCollection.mutateAsync({ name, color }));
       }
+      toast.success('Collection saved.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Collection could not be saved.');
     } finally {
