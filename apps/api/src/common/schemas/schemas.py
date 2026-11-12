@@ -14,6 +14,15 @@ class ApiModel(BaseModel):
     )
 
 
+Provider = Literal["ollama", "openai", "anthropic", "gemini", "huggingface", "deepseek", "zai"]
+HostedProvider = Literal["openai", "anthropic", "gemini", "huggingface", "deepseek", "zai"]
+
+
+class GenerationSelection(ApiModel):
+    provider: Provider
+    model: str = Field(min_length=1, max_length=200)
+
+
 class MaterialKey(StrEnum):
     notes = "notes"
     flashcards = "flashcards"
@@ -165,6 +174,7 @@ class ChatAnswer(ApiModel):
     answer: str
     citations: list[Citation]
     grounded: bool
+    effective_generation: GenerationSelection | None = None
 
 
 class HealthResponse(ApiModel):

@@ -71,6 +71,15 @@ export function useModels() {
   });
 }
 
+export function useAISettings() {
+  const { user } = useSession();
+  return useQuery({
+    queryKey: [...keys.root(user?.id), 'ai-settings'],
+    enabled: Boolean(user),
+    queryFn: ({ signal }) => api.getAISettings(signal),
+  });
+}
+
 export function useThreeD(id: string, enabled: boolean) {
   const { user } = useSession();
   return useQuery({

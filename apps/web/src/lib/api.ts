@@ -7,13 +7,15 @@ import type {
   LibraryEntry,
   StudyPill,
   ThreeDCode,
+  AISettings,
+  GenerationSelection,
+  HostedProvider,
 } from '@/lib/types';
-import { getPreferredGeneration } from '@/lib/generation-preference';
 import { authenticatedFetch, sessionEpoch } from '@/lib/session';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await authenticatedFetch(path, init);
   const started = sessionEpoch();
+  const response = await authenticatedFetch(path, init);
 
   if (response.status === 204) return undefined as T;
 
@@ -106,7 +108,7 @@ export async function getThreeDCode(id: string, signal?: AbortSignal): Promise<T
 
 export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   const form = new FormData();
-  const generation = input.generation ?? getPreferredGeneration();
+  const generation = input.generation;
   if (generation) {
     form.set('generation_provider', generation.provider);
     form.set('generation_model', generation.model);
@@ -126,6 +128,43 @@ export async function createPill(input: CreatePillInput): Promise<StudyPill> {
 
 export async function listGenerationOptions(signal?: AbortSignal): Promise<GenerationOption[]> {
   return request<GenerationOption[]>('/models', { signal });
+}
+
+export function getAISettings(signal?: AbortSignal): Promise<AISettings> {
+  return request<AISettings>('/settings/ai', { signal });
+}
+
+export function updateAISettings(
+  defaultGeneration: GenerationSelection,
+): Promise<GenerationSelection> {
+  return request<GenerationSelection>('/settings/ai', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ defaultGeneration }),
+  });
+}
+
+export function saveProviderKey(provider: HostedProvider, apiKey: string): Promise<void> {
+  return request<void>(`/settings/ai/providers/${provider}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey }),
+  });
+}
+
+export function removeProviderKey(provider: HostedProvider): Promise<void> {
+  return request<void>(`/settings/ai/providers/${provider}`, { method: 'DELETE' });
+}
+
+export function testProviderKey(
+  provider: HostedProvider,
+  model: string,
+): Promise<{ connected: boolean }> {
+  return request<{ connected: boolean }>(`/settings/ai/providers/${provider}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model }),
+  });
 }
 
 export async function askPill(id: string, question: string): Promise<ChatAnswer> {

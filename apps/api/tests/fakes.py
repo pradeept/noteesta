@@ -1,5 +1,6 @@
 from copy import deepcopy
 from types import SimpleNamespace
+from uuid import uuid4
 
 from pymongo.errors import DuplicateKeyError
 
@@ -22,8 +23,13 @@ class FakeTable:
                 return False
         return True
 
-    def find(self, query):
+    def find(self, query, projection=None):
         documents = [doc for doc in self.documents.values() if self.matches(doc, query)]
+        if projection:
+            documents = [
+                {key: value for key, value in doc.items() if projection.get(key) != 0}
+                for doc in documents
+            ]
 
         class Cursor:
             def sort(self, *_args):
@@ -54,18 +60,33 @@ class FakeTable:
         document.update(update.get("$set", {}))
         for key, value in update.get("$inc", {}).items():
             document[key] = document.get(key, 0) + value
+        for key, value in update.get("$addToSet", {}).items():
+            values = document.setdefault(key, [])
+            if value not in values:
+                values.append(value)
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, *, upsert=False):
         for document in self.documents.values():
             if self.matches(document, query):
                 self.apply(document, update)
                 return SimpleNamespace(matched_count=1)
+        if upsert:
+            document = {"_id": str(uuid4()), **query}
+            self.apply(document, update)
+            await self.insert_one(document)
         return SimpleNamespace(matched_count=0)
 
     async def update_many(self, query, update):
         for document in self.documents.values():
             if self.matches(document, query):
                 self.apply(document, update)
+
+    async def replace_one(self, query, replacement, *, upsert=False):
+        existing = await self.find_one(query)
+        if existing is not None:
+            self.documents[existing["_id"]] = deepcopy(replacement)
+        elif upsert:
+            await self.insert_one(replacement)
 
     async def find_one_and_update(self, query, update):
         document = await self.find_one(query)

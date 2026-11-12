@@ -10,8 +10,8 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 
 - Frontend: Next.js, React, Tailwind CSS, and Phosphor icons, managed only with **pnpm**.
 - Backend: `fastapi[standard]`, Pydantic, Celery, MongoDB, Redis, and SeaweedFS S3-compatible storage, managed only with **uv**.
-- Study Pill generation: selectable Ollama (configured Qwen or Gemma 4 26B), OpenAI (GPT-5.4 family), or Anthropic (Claude Sonnet 5.5). Ollama still supplies the separate embedding model for source search.
-- Optional 3D generation: the configured Ollama generation model prepares a cited spatial brief; the separately configured OpenAI scene model generates bounded Three.js code. The scene is stored in MongoDB and rendered in a sandboxed viewer.
+- Study Pill generation: personal API keys for OpenAI, Anthropic, Google Gemini, Hugging Face Inference Providers, DeepSeek, and Z.ai/GLM, alongside local Ollama. Settings includes current flagship, balanced, and faster presets. Ollama supplies the separate embedding model for source search.
+- Optional 3D generation: the Pill’s resolved generation model prepares a cited spatial brief and generates bounded Three.js code. The scene is stored in MongoDB and rendered in a sandboxed viewer.
 - Parsing: Docling for documents and images, faster-whisper `small` for recordings, and yt-dlp for accessible YouTube captions.
 - LLM evaluation: Promptfoo suites for section extraction, note synthesis, optional materials, visual specifications, and grounded chat. The providers and assertions are Python files in the backend.
 
@@ -61,11 +61,17 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 
 The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
 
-Start Ollama with the configured generation and embedding models available. Every generation provider requires Ollama embeddings; interactive 3D also uses the configured Ollama generation model for its spatial brief. `GET http://localhost:8000/api/v1/healthz` reports MongoDB, object-storage, and Celery worker connectivity. Inspect its JSON `status` and `dependencies`: a `failing` response currently still uses HTTP 200. Model availability is reported separately by authenticated `GET /api/v1/models`.
+Start Ollama with the configured generation and embedding models available. Every generation provider requires Ollama embeddings. A local generation model is needed only for Ollama generation or missing-key fallback. `GET http://localhost:8000/api/v1/healthz` reports MongoDB, object-storage, and Celery worker connectivity. Inspect its JSON `status` and `dependencies`: a `failing` response currently still uses HTTP 200. Model availability is reported separately by authenticated `GET /api/v1/models`.
 
 The public homepage at `/` explains Noteesta, and `/app` serves the read-only photosynthesis example, including an interactive 3D chloroplast schematic, without API calls. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Start signup at `/register`, then open the verification link delivered by the configured email adapter and choose your password. Google accounts using third-party email addresses also require a confirmation email before their first verified sign-in. Email/password and Google sign-in protect the workspace; the public example stays available without signing in. See the [authentication guide](docs/authentication.md) for Google, Resend, session, and caching setup. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
 
-The workspace's Generation model menu sets the default for new Study Pills. Each Pill saves its selection, so retrying it or asking its grounded chat uses the same provider and model. Keep the Ollama server running for embeddings with every choice. The menu exposes `gemma4:26b` after `ollama pull gemma4:26b`; OpenAI and Anthropic choices require server keys. `GET /api/v1/models` reports which choices are available. Interactive 3D uses a separate handoff through the configured Ollama model and scene generation through `OPENAI_3D_MODEL`.
+Open **Settings** from the account menu at `/settings` to add personal provider keys and save an account-wide default model. The workspace Generation model menu overrides that default for a new Pill. Each Pill retains its requested model for retries and grounded chat; its effective model is recorded separately when generation falls back to Ollama. New Pills created from other views use the account default.
+
+Keys are encrypted in MongoDB and never returned in full. Configure one persistent `PROVIDER_KEYS_ENCRYPTION_KEY` on both API and workers before saving keys. Generate it once with `uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'` from `apps/api`, then store it in `apps/api/.env` (or your deployment secret manager). Back up this key separately from the database. Replacing or losing it makes existing saved provider credentials unreadable; restore it or replace the affected personal keys in Settings. Missing encryption configuration disables hosted-key operations but leaves Ollama usable. Never expose the encryption key through a `NEXT_PUBLIC_*` variable.
+
+Hosted generation credentials are managed exclusively through Settings. A missing personal key falls back to the configured Ollama generation model. Invalid keys, access restrictions, quota errors, provider outages and undecryptable credentials produce explicit errors rather than switching models. In-flight operations may finish using the credential they already resolved; replacement and deletion affect subsequent operations. `GET /api/v1/models` reports account-specific availability. Keep Ollama’s `nomic-embed-text` available for embeddings; hosted generation does not require the local generation model to be installed.
+
+Hosted open models work through their inference APIs; Hugging Face tokens must allow Inference Providers calls. Z.ai uses a standard API key and standard endpoint, not a GLM Coding Plan subscription key. Provider availability and billing depend on the user’s account. Connection testing sends a small synthetic JSON request, never study sources, and may incur a small provider charge. Study generation and chat send selected source text to the chosen provider. See [preset comparison guidance](apps/api/evals/README.md) for model sources and live evaluation instructions.
 
 The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The API requires a Noteesta access bearer token for private resources, including model discovery. Production requires a stable `JWT_SECRET`, HTTPS, exact credentialed CORS origins, and Resend configuration. The local Compose setup binds the API port to loopback.
 
@@ -83,9 +89,8 @@ The backend values most likely to change are:
 - `OLLAMA_EMBEDDING_MODEL`: embedding model, default `nomic-embed-text`.
 - `OLLAMA_BASE_URL`: host used by local API and Promptfoo processes.
 - `OLLAMA_DOCKER_BASE_URL`: host used by the API and worker containers.
-- `OPENAI_API_KEY`: required for OpenAI Study Pill generation and for Interactive 3D scene generation. The rest of the Pill remains available if 3D generation fails or the source material does not support a spatial model.
-- `OPENAI_3D_MODEL`: OpenAI model used for scene code, default `gpt-5.4`.
-- `ANTHROPIC_API_KEY`: required to select Claude Sonnet 5.5 for Study Pill generation.
+- `PROVIDER_KEYS_ENCRYPTION_KEY`: persistent Fernet key, shared by API and workers, required for personal hosted-provider credentials.
+- Personal provider keys are managed through Settings, rather than backend environment variables. Optional `EVAL_*` credentials are separate and used only for explicitly run live evaluations.
 - `JWT_SECRET`: stable secret of at least 32 characters; generate one with `openssl rand -hex 32`.
 - `WEB_URL` and `CORS_ORIGINS`: frontend origin, including the development port.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: optional Google OAuth setup.
@@ -104,7 +109,7 @@ PROMPTFOO_PYTHON="$(cd apps/api && uv run python -c 'import sys; print(sys.execu
   pnpm dlx promptfoo@0.123.1 eval -c apps/api/evals/sections.yaml --env-file apps/api/.env -j 1
 ```
 
-Replace `sections.yaml` with `notes.yaml`, `materials.yaml`, `visuals.yaml`, or `chat.yaml` to run another required job. The Python provider reads `OLLAMA_BASE_URL` and `OLLAMA_MODEL`; Qwen reasoning is disabled for these structured-output jobs so assertions receive only final JSON.
+Replace `sections.yaml` with `notes.yaml`, `materials.yaml`, `visuals.yaml`, or `chat.yaml` to run another required job. The Python provider uses the same structured adapters as production. It defaults to `OLLAMA_MODEL`; set `EVAL_PROVIDER`, `EVAL_MODEL`, and the corresponding `EVAL_*` key for a hosted preset. Qwen reasoning is disabled. The [comparison guide](apps/api/evals/README.md) generates matrices against the local baseline without exporting account keys.
 
 The materials suite checks the MCQ target for concise notes (two questions) and fuller notes (five distinct questions), including source evidence for each answer.
 

@@ -37,6 +37,8 @@ def api(monkeypatch):
             ]
         ),
         collections=FakeTable(),
+        ai_settings=FakeTable(),
+        provider_credentials=FakeTable(),
     )
     storage = SimpleNamespace(
         put_bytes=AsyncMock(),

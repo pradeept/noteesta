@@ -67,7 +67,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [client] = useState(createQueryClient);
   const path = usePathname();
   const needsSession =
-    /^\/(workspace|pills|login|register|verify-email|verify-google-email|forgot-password|reset-password|auth)(\/|$)/u.test(
+    /^\/(workspace|settings|pills|login|register|verify-email|verify-google-email|forgot-password|reset-password|auth)(\/|$)/u.test(
       path,
     );
   useEffect(() => {

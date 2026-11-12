@@ -17,9 +17,9 @@ This page describes the current implementation. See the [backend guide](backend.
 | yt-dlp | Fetch accessible English YouTube captions, including automatic captions |
 | Generation adapters | Use the saved per-Pill choice for chunk analysis, notes, selected practice materials, visual specifications, and grounded chat |
 | Ollama embeddings | Use `OLLAMA_EMBEDDING_MODEL`, default `nomic-embed-text`, for source indexing and chat queries regardless of generation provider |
-| Interactive 3D | Use the configured Ollama generation model for a cited spatial brief and `OPENAI_3D_MODEL` for bounded Three.js scene code |
+| Interactive 3D | Use the Pill’s resolved provider/model for both a cited spatial brief and bounded Three.js scene code |
 
-The generation catalog supports configured Ollama, Gemma 4 26B, OpenAI GPT-5.4 variants, and Anthropic Claude Sonnet 5.5. `/api/v1/models` reports availability based on installed Ollama models, embeddings, and configured server keys.
+The generation catalog includes curated Ollama, OpenAI, Anthropic, Gemini, Hugging Face, DeepSeek and Z.ai/GLM presets, including current flagship options. `/api/v1/models` is personalized by account. Keys are encrypted in `provider_credentials`; account defaults live in `ai_settings`. API and workers share a persistent `PROVIDER_KEYS_ENCRYPTION_KEY`. No keys enter task payloads or Pill documents. Missing personal keys resolve to Ollama; provider failures remain explicit. Each generated Pill records `effectiveGeneration` separately from its requested `generation`.
 
 ## Frontend data
 
@@ -32,7 +32,7 @@ TanStack Query owns workspace server data with user-scoped keys, targeted mutati
 3. Every extracted text chunk is analyzed with its source ID, name, and locator. This runs sequentially. The pipeline retains the complete set of analyses for synthesis.
 4. Chunks are embedded and indexed in MongoDB before note synthesis. The vector prefilters use `user_id` and `pill_id`. Full-source synthesis uses all chunk analyses rather than a top-k retrieval result.
 5. The selected provider synthesizes cited notes and then selected flashcards, MCQs, true-or-false questions, and roadmap items. MCQ generation targets two or five questions based on note depth and allows up to two supplemental requests.
-6. The worker attempts a structured visual specification and renders it to PNG using application code. If selected, interactive 3D runs through its separate Ollama/OpenAI path. Visual or 3D failure can leave the rest of the Pill usable.
+6. The worker attempts a structured visual specification and renders it to PNG using application code. If selected, interactive 3D uses the same resolved provider for its spatial brief and scene code. Visual or 3D failure can leave the rest of the Pill usable.
 7. The final structured artifact, source status, progress, and processing duration are saved on the Pill in MongoDB. Scene code and the cited 3D handoff live in `pill_three_d`; PNGs stay in object storage. The browser polls the Pill route and fetches scene code when needed.
 
 ## Chat and export
@@ -59,3 +59,8 @@ Each worker task runs its asynchronous database work on one event loop and close
 - MongoDB Vector Search is an Atlas deployment prerequisite. The README documents the default 768-dimensional embedding index; hardware, concurrency sizing, and production storage deployment remain deployment decisions.
 
 The HTML prototypes and original diagram gallery remain design artifacts. Their proposed flows include capabilities beyond this implementation.
+
+
+## Personal provider settings
+
+`/settings` is an authenticated workspace route. It manages keys, small structured connection tests, and an account-wide default for new Pills. A workspace selection overrides the default for a new Pill; changing defaults does not change existing Pills. Generation, chat and both stages of optional 3D use the account credential resolver. Stored credentials are resolved once per operation, so changes apply to subsequent requests. Embeddings and vector indexes remain unchanged.

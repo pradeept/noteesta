@@ -5,7 +5,7 @@ prompts:
 providers:
   - id: file://provider.py
     config:
-      model: "{{ env.OLLAMA_MODEL }}"
+      job: sections
       base_url: "{{ env.OLLAMA_BASE_URL }}"
       num_ctx: 32768
       num_predict: 1800

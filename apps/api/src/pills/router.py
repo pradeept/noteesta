@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import StreamingResponse
 from pymongo.asynchronous.database import AsyncDatabase
 
+from src.ai_settings import CredentialError, preferred_generation
 from src.common.schemas.schemas import (
     AskRequest,
     BulkPillCollectionUpdate,
@@ -22,7 +23,7 @@ from src.common.schemas.schemas import (
 from src.config import get_settings
 from src.database import database_dependency
 from src.dependencies.profile import current_user_id
-from src.generation import availability_for, valid_selection
+from src.generation import GenerationError, resolve_generation, valid_selection
 from src.models.schemas import GenerationSelection
 from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.repository import PillRepository
@@ -34,10 +35,15 @@ from workers.tasks import process_pill_task
 pills_router = APIRouter(prefix="/pills", tags=["study-pills"])
 
 
-async def require_available_generation(selection: GenerationSelection) -> None:
-    option = await availability_for(selection)
-    if not option.available:
-        raise HTTPException(status_code=503, detail=option.reason or "Model is unavailable.")
+async def require_available_generation(
+    selection: GenerationSelection,
+    database: AsyncDatabase,
+    user_id: str,
+) -> None:
+    try:
+        await resolve_generation(database, user_id, selection)
+    except (GenerationError, CredentialError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
 
 
 @pills_router.get("", response_model=list[StudyPill])
@@ -60,15 +66,19 @@ async def create_study_pill(
     target_exam_date: Annotated[str, Form()] = "",
     study_hours_per_day: Annotated[str, Form()] = "",
     youtube_url: Annotated[str, Form()] = "",
-    generation_provider: Annotated[str, Form()] = "ollama",
+    generation_provider: Annotated[str, Form()] = "",
     generation_model: Annotated[str, Form()] = "",
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> StudyPill:
     settings = get_settings()
     try:
-        generation = GenerationSelection(
-            provider=generation_provider,
-            model=generation_model or settings.ollama_model,
+        generation = (
+            GenerationSelection(
+                provider=generation_provider,
+                model=generation_model or settings.ollama_model,
+            )
+            if generation_provider
+            else await preferred_generation(database, user_id)
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail="Generation choice is invalid.") from error
@@ -96,7 +106,7 @@ async def create_study_pill(
     normalized_youtube_url = youtube_url.strip()
     if normalized_youtube_url and not _is_youtube_url(normalized_youtube_url):
         raise HTTPException(status_code=422, detail="Enter a valid YouTube link.")
-    await require_available_generation(generation)
+    await require_available_generation(generation, database, user_id)
 
     # Validate form fields before writing source objects so rejected requests do
     # not leave orphaned uploads in object storage.
@@ -298,7 +308,6 @@ async def chat_with_pill(
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status != "ready":
         raise HTTPException(status_code=409, detail="This Study Pill is still being processed.")
-    await require_available_generation(pill.generation)
     return await answer_question(
         database,
         pill_id=pill_id,
@@ -322,7 +331,7 @@ async def retry_study_pill(
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status not in {"failed", "ready"}:
         raise HTTPException(status_code=409, detail="This Study Pill is already being processed.")
-    await require_available_generation(pill.generation)
+    await require_available_generation(pill.generation, database, user_id)
     updated = await repository.update(
         pill_id,
         status="queued",

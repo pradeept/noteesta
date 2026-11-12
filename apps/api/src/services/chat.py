@@ -3,7 +3,7 @@ import json
 from pymongo.asynchronous.database import AsyncDatabase
 
 from src.common.schemas.schemas import ChatAnswer, Citation
-from src.generation import generation_client
+from src.generation import resolve_generation
 from src.llm import CHAT_SCHEMA
 from src.models.schemas import GenerationSelection
 from src.prompts import render_prompt
@@ -20,7 +20,7 @@ async def answer_question(
 ) -> ChatAnswer:
     """Answer a question only from the nearest chunks in the requested Study Pill."""
 
-    client = generation_client(generation)
+    effective, client = await resolve_generation(database, user_id, generation)
     ranked = await StudyPillRetriever(database).retrieve(
         pill_id=pill_id, user_id=user_id, question=question
     )
@@ -38,6 +38,7 @@ async def answer_question(
             answer="This Study Pill does not contain enough processed evidence to answer that yet.",
             citations=[],
             grounded=False,
+            effective_generation=effective,
         )
 
     result = await client.generate_json(
@@ -70,5 +71,11 @@ async def answer_question(
             answer="This Study Pill does not contain enough verifiable evidence to answer that.",
             citations=[],
             grounded=False,
+            effective_generation=effective,
         )
-    return ChatAnswer(answer=str(result["answer"]), citations=citations, grounded=grounded)
+    return ChatAnswer(
+        answer=str(result["answer"]),
+        citations=citations,
+        grounded=grounded,
+        effective_generation=effective,
+    )

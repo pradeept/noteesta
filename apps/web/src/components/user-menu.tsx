@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { DropdownMenu } from 'radix-ui';
 import { toast } from 'sonner';
 import { useSession } from '@/components/app-providers';
@@ -31,6 +32,9 @@ export function UserMenu() {
         <DropdownMenu.Portal>
           <DropdownMenu.Content className="account-menu" sideOffset={8} align="end">
             <DropdownMenu.Label>{user.email}</DropdownMenu.Label>
+            <DropdownMenu.Item asChild>
+              <Link href="/settings">Settings</Link>
+            </DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => void logout(false)}>Sign out</DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => setConfirmAll(true)}>
               Sign out everywhere…

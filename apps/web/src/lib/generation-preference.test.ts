@@ -2,7 +2,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPill } from '@/lib/api';
-import { getPreferredGeneration, setPreferredGeneration } from '@/lib/generation-preference';
 
 vi.mock('@/lib/session', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/session')>()),
@@ -15,13 +14,7 @@ afterEach(() => {
 });
 
 describe('generation preference', () => {
-  it('uses the saved workspace choice for Study Pills created from other views', async () => {
-    setPreferredGeneration({ provider: 'anthropic', model: 'claude-sonnet-5-5' });
-    expect(getPreferredGeneration()).toEqual({
-      provider: 'anthropic',
-      model: 'claude-sonnet-5-5',
-    });
-
+  it('lets the backend resolve the account default when no override is supplied', async () => {
     const send = vi.fn().mockResolvedValue({
       ok: true,
       status: 202,
@@ -37,12 +30,11 @@ describe('generation preference', () => {
       learnerLevel: 'intermediate',
     });
     const body = send.mock.calls[0][1].body as FormData;
-    expect(body.get('generation_provider')).toBe('anthropic');
-    expect(body.get('generation_model')).toBe('claude-sonnet-5-5');
+    expect(body.get('generation_provider')).toBeNull();
+    expect(body.get('generation_model')).toBeNull();
   });
 
-  it('lets an explicit workspace choice override the saved choice', async () => {
-    setPreferredGeneration({ provider: 'anthropic', model: 'claude-sonnet-5-5' });
+  it('sends an explicit workspace override', async () => {
     const send = vi.fn().mockResolvedValue({
       ok: true,
       status: 202,
