@@ -22,13 +22,15 @@ from src.main import app
 EMAIL = "student@example.com"
 PASSWORD = "a long study passphrase"
 HEADERS = {"Origin": "http://localhost:3000", "X-Noteesta-Client": "web"}
+GOOGLE_REQUEST = SimpleNamespace(client=SimpleNamespace(host="testclient"))
+GOOGLE_BINDING = "test-browser-binding"
 
 
 @pytest.fixture
 def auth_api(monkeypatch, tmp_path):
     database = SimpleNamespace(
         **{
-            name: FakeTable()
+            name: FakeTable(unique_fields=("email", "google_sub") if name == "users" else ())
             for name in (
                 "users",
                 "auth_sessions",
@@ -64,7 +66,7 @@ def last_token(directory, purpose="verify-email"):
 def register(client, email=EMAIL):
     return client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "displayName": "Student"},
+        json={"email": email, "displayName": "Student"},
     )
 
 
@@ -76,7 +78,9 @@ def verified_login(auth_api):
     client, _, directory = auth_api
     assert register(client).status_code == 202
     assert (
-        client.post("/api/v1/auth/verify-email", json={"token": last_token(directory)}).status_code
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": last_token(directory), "password": PASSWORD}
+        ).status_code
         == 200
     )
     response = login(client)
@@ -88,13 +92,23 @@ def test_registration_verification_and_login(auth_api):
     client, database, directory = auth_api
     assert register(client, "STUDENT@example.com").status_code == 202
     user = next(iter(database.users.documents.values()))
-    assert user["email"] == EMAIL and user["password_hash"] != PASSWORD
-    assert login(client).status_code == 403
+    assert user["email"] == EMAIL and user["password_hash"] is None
+    assert login(client).status_code == 401
     token = last_token(directory)
     assert token not in str(database.auth_email_tokens.documents)
     assert client.get(f"/api/v1/auth/verify-email?token={token}").status_code == 405
-    assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 200
-    assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 400
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 400
+    )
     response = login(client)
     assert response.json()["expiresIn"] == 900
     assert response.json()["user"]["loginMethods"] == ["password"]
@@ -115,6 +129,41 @@ def test_generic_registration_and_recovery_responses(auth_api):
     assert (
         unknown.json() == client.post("/api/v1/auth/forgot-password", json={"email": EMAIL}).json()
     )
+
+
+def test_signup_retry_recovers_from_email_failure_without_changing_account(auth_api, monkeypatch):
+    client, database, directory = auth_api
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            service,
+            "send_account_email",
+            AsyncMock(side_effect=security.fail("email_unavailable", "Try again.", 503)),
+        )
+        assert register(client).status_code == 503
+    original = next(iter(database.users.documents.values())).copy()
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": EMAIL, "password": "a different long password", "displayName": "Changed"},
+    )
+    assert response.status_code == 202
+    assert len(database.users.documents) == 1
+    assert next(iter(database.users.documents.values())) == original
+    token = last_token(directory)
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 200
+    )
+    assert login(client).status_code == 200
+
+
+def test_signup_retry_does_not_email_verified_account(auth_api):
+    client, _, directory = auth_api
+    verified_login(auth_api)
+    messages = list(directory.glob("*.json"))
+    assert register(client).status_code == 202
+    assert list(directory.glob("*.json")) == messages
 
 
 @pytest.mark.parametrize(
@@ -212,7 +261,9 @@ def test_expired_email_token(auth_api):
         seconds=1
     )
     assert (
-        client.post("/api/v1/auth/verify-email", json={"token": last_token(directory)}).status_code
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": last_token(directory), "password": PASSWORD}
+        ).status_code
         == 400
     )
 
@@ -251,12 +302,25 @@ async def test_google_linking_invalidates_unverified_password(auth_api):
     client, database, directory = auth_api
     register(client)
     token = last_token(directory)
-    identity = {"sub": "google-1", "email": EMAIL, "name": "Student", "email_verified": True}
-    linked = await google.link_google(database, identity)
+    identity = {
+        "sub": "google-1",
+        "email": EMAIL,
+        "name": "Student",
+        "email_verified": True,
+        "hd": "example.com",
+    }
+    linked = await google.link_google(database, identity, GOOGLE_REQUEST, GOOGLE_BINDING)
     assert linked["email_verified"] and linked["password_hash"] is None
-    assert (await google.link_google(database, identity))["_id"] == linked["_id"]
+    assert (await google.link_google(database, identity, GOOGLE_REQUEST, GOOGLE_BINDING))[
+        "_id"
+    ] == linked["_id"]
     assert login(client).status_code == 401
-    assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 400
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 400
+    )
 
 
 @pytest.mark.asyncio
@@ -264,7 +328,12 @@ async def test_verified_google_link_preserves_password(auth_api):
     _, database, _ = auth_api
     verified_login(auth_api)
     user = next(iter(database.users.documents.values()))
-    linked = await google.link_google(database, {"sub": "google-1", "email": EMAIL})
+    linked = await google.link_google(
+        database,
+        {"sub": "google-1", "email": EMAIL, "email_verified": True, "hd": "example.com"},
+        GOOGLE_REQUEST,
+        GOOGLE_BINDING,
+    )
     assert linked["_id"] == user["_id"] and linked["password_hash"] == user["password_hash"]
     assert service.public_user(linked).login_methods == ["password", "google"]
 
@@ -288,7 +357,14 @@ def test_google_state_pkce_binding_and_callback(auth_api, monkeypatch):
     monkeypatch.setattr(
         google,
         "google_identity",
-        AsyncMock(return_value={"sub": "google-1", "email": EMAIL, "email_verified": True}),
+        AsyncMock(
+            return_value={
+                "sub": "google-1",
+                "email": EMAIL,
+                "email_verified": True,
+                "hd": "example.com",
+            }
+        ),
     )
     result = client.get(callback, follow_redirects=False)
     assert "/auth/callback?returnTo=%2Fworkspace" in result.headers["location"]
@@ -327,6 +403,32 @@ def test_production_settings_reject_missing_secret(monkeypatch):
     monkeypatch.setattr(get_settings(), "jwt_secret", "")
     with pytest.raises(RuntimeError):
         security.validate_auth_settings()
+
+
+@pytest.mark.parametrize(
+    ("sender", "key", "expected_error"),
+    [
+        ("Noteesta contact@noteesta.com", "re_test", "EMAIL_FROM"),
+        ("Noteesta <contact@noteesta.com>", "", "RESEND_API_KEY"),
+    ],
+)
+def test_resend_settings_reject_invalid_configuration(monkeypatch, sender, key, expected_error):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "email_adapter", "resend")
+    monkeypatch.setattr(settings, "email_from", sender)
+    monkeypatch.setattr(settings, "resend_api_key", key)
+    with pytest.raises(RuntimeError, match=expected_error):
+        security.validate_auth_settings()
+
+
+def test_resend_settings_accept_named_sender(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "email_adapter", "resend")
+    monkeypatch.setattr(settings, "email_from", "Noteesta <contact@noteesta.com>")
+    monkeypatch.setattr(settings, "resend_api_key", "re_test")
+    security.validate_auth_settings()
 
 
 @pytest.mark.asyncio
@@ -410,6 +512,28 @@ async def test_resend_delivery_failure_is_recoverable(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("name", ["validation_error", "unsafe secret-recipient@example.com"])
+async def test_resend_rejection_logs_metadata_without_email_secrets(monkeypatch, caplog, name):
+    from src.auth.email import send_account_email
+
+    token = "single-use-test-token"
+    response = httpx.Response(
+        422,
+        json={"name": name, "message": f"{EMAIL} {token} re_secret"},
+        request=httpx.Request("POST", "https://api.resend.com/emails"),
+    )
+    monkeypatch.setattr(get_settings(), "email_adapter", "resend")
+    monkeypatch.setattr(httpx.AsyncClient, "post", AsyncMock(return_value=response))
+    with pytest.raises(HTTPException) as error:
+        await send_account_email(EMAIL, token, "verify")
+    assert error.value.status_code == 503
+    assert "status=422" in caplog.text
+    assert f"code={name if name == 'validation_error' else 'HTTPStatusError'}" in caplog.text
+    for secret in (EMAIL, token, "re_secret", "secret-recipient@example.com"):
+        assert secret not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_local_reset_dry_run_is_read_only(monkeypatch, tmp_path):
     from unittest.mock import Mock
 
@@ -444,3 +568,250 @@ async def test_local_reset_dry_run_is_read_only(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "mongodb_uri", "mongodb+srv://shared.example/")
     with pytest.raises(RuntimeError):
         reset_local.validate_target("noteesta")
+
+
+@pytest.mark.parametrize("use_original_link", [True, False])
+def test_verification_replaces_preregistered_password(auth_api, use_original_link):
+    client, database, directory = auth_api
+    assert register(client).status_code == 202
+    original_token = last_token(directory)
+    user = next(iter(database.users.documents.values()))
+    # Also cover unverified accounts created before password setup moved to verification.
+    user["password_hash"] = security.passwords.hash("attacker-chosen password")
+    assert register(client).status_code == 202
+    retry_token = last_token(directory)
+    token = original_token if use_original_link else retry_token
+    password = "the email owners new password"
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": password}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/login", json={"email": EMAIL, "password": "attacker-chosen password"}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post("/api/v1/auth/login", json={"email": EMAIL, "password": password}).status_code
+        == 200
+    )
+    for previous in (original_token, retry_token):
+        assert (
+            client.post(
+                "/api/v1/auth/verify-email", json={"token": previous, "password": PASSWORD}
+            ).status_code
+            == 400
+        )
+
+
+def test_verification_requires_password_without_consuming_link(auth_api):
+    client, _, directory = auth_api
+    register(client)
+    token = last_token(directory)
+    for body in ({"token": token}, {"token": token, "password": "short"}):
+        assert client.post("/api/v1/auth/verify-email", json=body).status_code == 422
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.asyncio
+async def test_only_one_verification_can_activate_password(auth_api):
+    from src.auth.schemas import VerifyEmailInput
+
+    client, database, directory = auth_api
+    register(client)
+    first = last_token(directory)
+    register(client)
+    second = last_token(directory)
+    candidates = [(first, "the first chosen password"), (second, "the second chosen password")]
+    results = await asyncio.gather(
+        *(
+            router.verify_email(VerifyEmailInput(token=t, password=p), GOOGLE_REQUEST, database)
+            for t, p in candidates
+        ),
+        return_exceptions=True,
+    )
+    assert sum(isinstance(result, HTTPException) for result in results) == 1
+    for (_, password), result in zip(candidates, results, strict=True):
+        response = client.post("/api/v1/auth/login", json={"email": EMAIL, "password": password})
+        assert response.status_code == (401 if isinstance(result, HTTPException) else 200)
+
+
+def complete_google_callback(client, monkeypatch, identity):
+    monkeypatch.setattr(get_settings(), "google_client_id", "test-client")
+    monkeypatch.setattr(get_settings(), "google_client_secret", "test-secret")
+    start = client.get("/api/v1/auth/google/start", follow_redirects=False)
+    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    monkeypatch.setattr(google, "google_identity", AsyncMock(return_value=identity))
+    return client.get(
+        f"/api/v1/auth/google/callback?state={state}&code=test-code", follow_redirects=False
+    )
+
+
+@pytest.mark.parametrize("account_state", ["new", "unverified", "verified", "legacy-google"])
+def test_third_party_google_email_requires_browser_bound_confirmation(
+    auth_api, monkeypatch, account_state
+):
+    client, database, directory = auth_api
+    password_hash = None
+    if account_state in {"verified", "legacy-google"}:
+        verified_login(auth_api)
+        user = next(iter(database.users.documents.values()))
+        password_hash = user["password_hash"]
+        if account_state == "legacy-google":
+            user["google_sub"] = "google-external"
+    elif account_state == "unverified":
+        register(client)
+        next(iter(database.users.documents.values()))["password_hash"] = security.passwords.hash(
+            "attacker-chosen password"
+        )
+    client.cookies.clear()
+    sessions_before = len(database.auth_sessions.documents)
+    identity = {"sub": "google-external", "email": EMAIL, "email_verified": True}
+    response = complete_google_callback(client, monkeypatch, identity)
+    assert response.status_code == 302 and response.headers["location"].endswith(
+        "/verify-google-email"
+    )
+    assert client.cookies.get(service.COOKIE_NAME) is None
+    assert len(database.auth_sessions.documents) == sessions_before
+    user = next(iter(database.users.documents.values()))
+    assert user.get("google_link_verified") is not True
+    assert user.get("google_sub") == (
+        "google-external" if account_state == "legacy-google" else None
+    )
+    token = last_token(directory, "verify-google-email")
+    binding = client.cookies.get(google.LINK_COOKIE)
+    assert binding and "HttpOnly" in response.headers["set-cookie"]
+    assert binding not in str(database.auth_email_tokens.documents)
+    assert token not in str(database.auth_email_tokens.documents)
+    assert client.get(f"/api/v1/auth/verify-google-email?token={token}").status_code == 405
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email", json={"token": token, "password": PASSWORD}
+        ).status_code
+        == 400
+    )
+    client.cookies.clear()
+    assert client.post("/api/v1/auth/verify-google-email", json={"token": token}).status_code == 400
+    client.cookies.set(
+        google.LINK_COOKIE, "wrong-browser", domain="testserver.local", path=google.LINK_COOKIE_PATH
+    )
+    assert client.post("/api/v1/auth/verify-google-email", json={"token": token}).status_code == 400
+    client.cookies.set(
+        google.LINK_COOKIE, binding, domain="testserver.local", path=google.LINK_COOKIE_PATH
+    )
+    assert client.post("/api/v1/auth/verify-google-email", json={"token": token}).status_code == 200
+    assert client.cookies.get(google.LINK_COOKIE) is None
+    assert client.post("/api/v1/auth/verify-google-email", json={"token": token}).status_code == 400
+    user = next(iter(database.users.documents.values()))
+    assert user["google_link_verified"] is True and user["email_verified"] is True
+    assert user["google_sub"] == "google-external"
+    assert user["password_hash"] == password_hash
+    assert len(database.auth_sessions.documents) == sessions_before
+    # Only a subsequent signed Google callback creates a session.
+    response = complete_google_callback(client, monkeypatch, identity)
+    assert "/auth/callback?" in response.headers["location"]
+    assert len(database.auth_sessions.documents) == sessions_before + 1
+    assert client.post("/api/v1/auth/refresh").status_code == 200
+
+
+@pytest.mark.parametrize("change", ["expired", "password-reset", "different-subject"])
+def test_google_confirmation_rejects_stale_or_conflicting_account(auth_api, monkeypatch, change):
+    client, database, directory = auth_api
+    headers = verified_login(auth_api)
+    identity = {"sub": "google-external", "email": EMAIL, "email_verified": True}
+    complete_google_callback(client, monkeypatch, identity)
+    token = last_token(directory, "verify-google-email")
+    user = next(iter(database.users.documents.values()))
+    if change == "expired":
+        database.auth_email_tokens.documents[security.digest(token)][
+            "expires_at"
+        ] = now() - timedelta(seconds=1)
+    elif change == "password-reset":
+        client.post("/api/v1/auth/forgot-password", json={"email": EMAIL})
+        reset_token = last_token(directory, "reset-password")
+        assert (
+            client.post(
+                "/api/v1/auth/reset-password", json={"token": reset_token, "password": PASSWORD}
+            ).status_code
+            == 200
+        )
+        assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+    else:
+        user["google_sub"] = "different-google-subject"
+    assert client.post("/api/v1/auth/verify-google-email", json={"token": token}).status_code == 400
+    assert user.get("google_link_verified") is not True
+
+
+@pytest.mark.parametrize(
+    ("identity", "trusted"),
+    [
+        ({"email": "owner@gmail.com", "email_verified": True}, True),
+        ({"email": EMAIL, "email_verified": True, "hd": "example.com"}, True),
+        ({"email": EMAIL, "email_verified": True}, False),
+        ({"email": EMAIL, "email_verified": True, "hd": ""}, False),
+        ({"email": EMAIL, "email_verified": True, "hd": " "}, False),
+        ({"email": "owner@gmail.com.evil.example", "email_verified": True}, False),
+        ({"email": "owner@gmail.com", "email_verified": False}, False),
+    ],
+)
+def test_google_email_authority(identity, trusted):
+    assert google.google_owns_email(identity) is trusted
+
+
+def test_gmail_sign_in_does_not_require_extra_email_confirmation(auth_api, monkeypatch):
+    client, database, directory = auth_api
+    response = complete_google_callback(
+        client,
+        monkeypatch,
+        {"sub": "google-gmail", "email": "owner@gmail.com", "email_verified": True},
+    )
+    assert "/auth/callback?" in response.headers["location"]
+    assert list(directory.glob("*.json")) == []
+    assert next(iter(database.users.documents.values()))["google_link_verified"] is True
+    assert client.post("/api/v1/auth/refresh").status_code == 200
+
+
+def test_google_confirmation_delivery_failure_does_not_link_or_create_session(
+    auth_api, monkeypatch
+):
+    client, database, _ = auth_api
+    monkeypatch.setattr(
+        service,
+        "send_account_email",
+        AsyncMock(side_effect=security.fail("email_unavailable", "Try again.", 503)),
+    )
+    response = complete_google_callback(
+        client, monkeypatch, {"sub": "google-external", "email": EMAIL, "email_verified": True}
+    )
+    assert "/login?error=" in response.headers["location"]
+    user = next(iter(database.users.documents.values()))
+    assert user["email_verified"] is False and not user.get("google_sub")
+    assert database.auth_sessions.documents == {}
+
+
+@pytest.mark.asyncio
+async def test_only_one_google_identity_can_win_concurrent_confirmation(auth_api):
+    _, database, directory = auth_api
+    verified_login(auth_api)
+    attempts = []
+    for number in (1, 2):
+        identity = {"sub": f"google-{number}", "email": EMAIL, "email_verified": True}
+        binding = f"browser-{number}"
+        assert await google.link_google(database, identity, GOOGLE_REQUEST, binding) is None
+        attempts.append((last_token(directory, "verify-google-email"), binding, identity["sub"]))
+    results = await asyncio.gather(
+        *(google.confirm_google_email(database, token, binding) for token, binding, _ in attempts),
+        return_exceptions=True,
+    )
+    assert sum(isinstance(result, HTTPException) for result in results) == 1
+    user = next(iter(database.users.documents.values()))
+    for (_, _, subject), result in zip(attempts, results, strict=True):
+        assert (user["google_sub"] == subject) == (result is None)

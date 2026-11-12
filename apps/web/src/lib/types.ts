@@ -1,7 +1,11 @@
 export type MaterialKey = 'notes' | 'flashcards' | 'mcqs' | 'trueFalse' | 'roadmap' | 'threeD';
 
+export type Provider =
+  'ollama' | 'openai' | 'anthropic' | 'gemini' | 'huggingface' | 'deepseek' | 'zai';
+export type HostedProvider = Exclude<Provider, 'ollama'>;
+
 export interface GenerationSelection {
-  provider: 'ollama' | 'openai' | 'anthropic';
+  provider: Provider;
   model: string;
 }
 
@@ -9,6 +13,23 @@ export interface GenerationOption extends GenerationSelection {
   label: string;
   available: boolean;
   reason: string | null;
+  tier?: string;
+}
+
+export interface ProviderStatus {
+  provider: HostedProvider;
+  label: string;
+  configured: boolean;
+  suffix: string | null;
+  updatedAt: string | null;
+  testedModels: string[];
+}
+
+export interface AISettings {
+  defaultGeneration: GenerationSelection;
+  keysEnabled: boolean;
+  providers: ProviderStatus[];
+  models: GenerationOption[];
 }
 
 export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube';
@@ -140,6 +161,7 @@ export interface StudyPill {
   stage?: string;
   selectedMaterials: MaterialKey[];
   generation: GenerationSelection;
+  effectiveGeneration?: GenerationSelection | null;
   sources: Source[];
   artifact?: StudyArtifact;
   updatedAt: string;
@@ -152,6 +174,7 @@ export interface ChatAnswer {
   answer: string;
   citations: Citation[];
   grounded: boolean;
+  effectiveGeneration?: GenerationSelection | null;
 }
 
 export interface CreatePillInput {

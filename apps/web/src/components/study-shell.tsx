@@ -403,6 +403,13 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
           </div>
         </header>
 
+        {activePill?.effectiveGeneration &&
+        activePill.effectiveGeneration.provider !== activePill.generation.provider ? (
+          <p className="connection-note" role="status">
+            This Pill used Ollama because no personal key was saved for its selected provider.{' '}
+            <Link href="/settings">Manage API keys</Link>
+          </p>
+        ) : null}
         {libraryError ? (
           <div className="connection-note" role="status">
             {libraryError}
@@ -908,6 +915,12 @@ function ChatPanel({
             </p>
             <div className="chat-answer bg-transparent p-0 text-sm leading-[1.8] [overflow-wrap:anywhere] [&_button]:max-w-full [&_button]:text-left [&_button]:leading-[1.5] [&_button]:[padding:8px_10px] [&_button]:bg-surface [&_button]:text-accent [&_button]:text-[11px]">
               <p>{turn.answer.answer}</p>
+              {turn.answer.effectiveGeneration?.provider === 'ollama' &&
+              pill.generation.provider !== 'ollama' ? (
+                <p className="text-xs text-muted">
+                  Answered with Ollama because the selected provider has no personal key.
+                </p>
+              ) : null}
               <div>
                 {turn.answer.citations.map((item) => (
                   <button

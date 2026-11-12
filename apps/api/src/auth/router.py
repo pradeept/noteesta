@@ -6,7 +6,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from src.auth.dependencies import current_user
-from src.auth.google import finish_google, start_google
+from src.auth.google import (
+    LINK_COOKIE,
+    LINK_COOKIE_PATH,
+    confirm_google_email,
+    finish_google,
+    start_google,
+)
 from src.auth.schemas import (
     EmailInput,
     LoginInput,
@@ -15,6 +21,7 @@ from src.auth.schemas import (
     TokenInput,
     Tokens,
     User,
+    VerifyEmailInput,
 )
 from src.auth.security import (
     browser_request,
@@ -34,6 +41,7 @@ from src.auth.service import (
     rotate_session,
     send_token,
 )
+from src.config import get_settings
 from src.database import database_dependency
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -45,19 +53,21 @@ GENERIC = {"message": "If this address is eligible, an email will arrive shortly
 @router.post("/register", status_code=202, dependencies=[Browser])
 async def register(body: RegisterInput, request: Request, database: Database):
     await rate_limit(request, "register", body.email)
-    hashed = await hash_password(body.password)
     user = {
         "_id": str(uuid4()),
         "email": body.email,
         "display_name": body.display_name.strip() or body.email,
         "email_verified": False,
-        "password_hash": hashed,
+        "password_hash": None,
         "created_at": now(),
         "credential_version": 0,
     }
     try:
         await database.users.insert_one(user)
     except DuplicateKeyError:
+        existing = await database.users.find_one({"email": body.email, "email_verified": False})
+        if existing:
+            await send_token(database, existing, "verify")
         return GENERIC
     await send_token(database, user, "verify")
     return GENERIC
@@ -84,11 +94,43 @@ async def resend_verification(body: EmailInput, request: Request, database: Data
 
 
 @router.post("/verify-email", dependencies=[Browser])
-async def verify_email(body: TokenInput, request: Request, database: Database):
+async def verify_email(body: VerifyEmailInput, request: Request, database: Database):
     await rate_limit(request, "verify")
+    hashed = await hash_password(body.password)
     entry = await consume_token(database, body.token, "verify")
-    await database.users.update_one({"_id": entry["user_id"]}, {"$set": {"email_verified": True}})
+    updated = await database.users.update_one(
+        {
+            "_id": entry["user_id"],
+            "email_verified": False,
+            "credential_version": entry.get("credential_version", 0),
+        },
+        {
+            "$set": {"email_verified": True, "password_hash": hashed},
+            "$inc": {"credential_version": 1},
+        },
+    )
+    if not updated.matched_count:
+        raise fail("invalid_email_token", "This link has expired or has already been used.", 400)
+    await database.auth_email_tokens.update_many(
+        {"user_id": entry["user_id"], "purpose": "verify"}, {"$set": {"used_at": now()}}
+    )
     return {"message": "Email verified. You can now sign in."}
+
+
+@router.post("/verify-google-email", dependencies=[Browser])
+async def verify_google_email(
+    body: TokenInput, request: Request, response: Response, database: Database
+):
+    await rate_limit(request, "verify-google")
+    await confirm_google_email(database, body.token, request.cookies.get(LINK_COOKIE, ""))
+    response.delete_cookie(
+        LINK_COOKIE,
+        path=LINK_COOKIE_PATH,
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().app_env != "development",
+    )
+    return {"message": "Email confirmed. Continue with Google to sign in."}
 
 
 @router.post("/forgot-password", status_code=202, dependencies=[Browser])

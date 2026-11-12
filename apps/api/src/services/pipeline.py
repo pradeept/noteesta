@@ -19,9 +19,8 @@ from src.common.schemas.schemas import (
     TrueFalseQuestion,
     VisualSpec,
 )
-from src.config import get_settings
 from src.database import get_database
-from src.generation import generation_client
+from src.generation import resolve_generation
 from src.repository import (
     PillRepository,
     artifact_for_storage,
@@ -70,7 +69,10 @@ async def process_pill(pill_id: str) -> None:
             len(pill.sources),
         )
         storage = get_storage()
-        orchestrator = StudyPillOrchestrator(generation_client(pill.generation))
+        effective, client = await resolve_generation(database, pill.user_id, pill.generation)
+        pill.effective_generation = effective
+        await repository.update(pill_id, effective_generation=effective.model_dump(by_alias=False))
+        orchestrator = StudyPillOrchestrator(client)
         retriever = StudyPillRetriever(database)
         analyses: list[dict[str, Any]] = []
         chunk_documents: list[Document] = []
@@ -257,12 +259,10 @@ async def process_pill(pill_id: str) -> None:
             await repository.delete_three_d(pill.id, pill.user_id)
             try:
                 three_d, javascript, handoff = await prepare_three_d(
-                    StudyPillOrchestrator(), grounded_notes, source_lookup
+                    orchestrator, grounded_notes, source_lookup
                 )
                 if javascript and handoff:
-                    await repository.save_three_d(
-                        pill, javascript, handoff, get_settings().openai_3d_model
-                    )
+                    await repository.save_three_d(pill, javascript, handoff, effective.model)
             except Exception:
                 logger.exception(
                     "3D generation failed for pill %s; other materials remain usable", pill_id

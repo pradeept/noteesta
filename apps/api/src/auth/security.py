@@ -7,6 +7,7 @@ from functools import lru_cache
 import jwt
 from fastapi import HTTPException, Request
 from pwdlib import PasswordHash
+from pydantic import NameEmail, TypeAdapter, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
@@ -35,6 +36,15 @@ def validate_auth_settings() -> None:
         raise RuntimeError("JWT_SECRET must contain at least 32 characters.")
     if settings.email_adapter not in {"local", "resend"}:
         raise RuntimeError("EMAIL_ADAPTER must be local or resend.")
+    if settings.email_adapter == "resend":
+        if not settings.resend_api_key:
+            raise RuntimeError("EMAIL_ADAPTER=resend requires RESEND_API_KEY.")
+        try:
+            TypeAdapter(NameEmail).validate_python(settings.email_from)
+        except ValidationError as exc:
+            raise RuntimeError(
+                "EMAIL_FROM must be an email address or use Name <email@example.com> format."
+            ) from exc
     if settings.app_env != "development":
         if not settings.jwt_secret or settings.email_adapter != "resend":
             raise RuntimeError("Production requires JWT_SECRET and EMAIL_ADAPTER=resend.")

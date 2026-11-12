@@ -3,16 +3,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from src.ai_settings import CredentialError
 from src.auth.router import router as auth_router
 from src.auth.security import validate_auth_settings
 from src.collections.router import router as collections_router
 from src.config import get_settings
 from src.database import close_database, ensure_indexes
+from src.generation import GenerationError
 from src.health.router import health_router
 from src.library.router import router as library_router
 from src.models.router import router as models_router
 from src.pills.router import pills_router
+from src.settings.router import router as settings_router
 from src.storage import get_storage
 
 
@@ -32,6 +36,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 settings = get_settings()
+
+
+@app.exception_handler(GenerationError)
+async def generation_error_handler(_request, error):
+    return JSONResponse(status_code=502, content={"detail": str(error)})
+
+
+@app.exception_handler(CredentialError)
+async def credential_error_handler(_request, error):
+    return JSONResponse(status_code=503, content={"detail": str(error)})
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -55,3 +71,4 @@ app.include_router(pills_router, prefix="/api/v1")
 app.include_router(collections_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
+app.include_router(settings_router, prefix="/api/v1")

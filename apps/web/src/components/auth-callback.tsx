@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/app-providers';
+import { rememberAuthMethod } from '@/lib/auth-preference';
 import { announceSessionChange, refreshSession, safeReturnPath } from '@/lib/session';
 
 export function AuthCallback({ returnTo }: { returnTo?: string }) {
@@ -11,6 +12,7 @@ export function AuthCallback({ returnTo }: { returnTo?: string }) {
   const router = useRouter();
   useEffect(() => {
     if (status === 'authenticated') {
+      rememberAuthMethod('google');
       announceSessionChange();
       router.replace(safeReturnPath(returnTo ?? null));
     }

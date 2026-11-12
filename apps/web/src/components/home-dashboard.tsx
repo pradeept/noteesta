@@ -8,6 +8,7 @@ import {
   useCollections,
   useLibrary,
   useModels,
+  useAISettings,
   useWorkspaceMutations,
 } from '@/lib/queries';
 import Link from 'next/link';
@@ -27,7 +28,7 @@ import { CreatePillDialog } from '@/components/create-pill-dialog';
 import { FileLibraryDialog } from '@/components/file-library-dialog';
 import { ThemePicker } from '@/components/appearance-controls';
 import { SourceIcon } from '@/components/source-icon';
-import { getPreferredGeneration, setPreferredGeneration } from '@/lib/generation-preference';
+import { providerLabels, providerOrder, tierLabels } from '@/lib/ai-providers';
 import type { CreatePillInput, StudyPill } from '@/lib/types';
 
 export function HomeDashboard() {
@@ -36,6 +37,7 @@ export function HomeDashboard() {
   const collectionsQuery = useCollections();
   const libraryQuery = useLibrary();
   const modelsQuery = useModels();
+  const settingsQuery = useAISettings();
   const mutations = useWorkspaceMutations();
   const pills = pillsQuery.data ?? [];
   const collections = collectionsQuery.data ?? [];
@@ -44,14 +46,14 @@ export function HomeDashboard() {
   const error = pillsQuery.error?.message ?? collectionsQuery.error?.message ?? '';
   const sourceError = libraryQuery.error?.message ?? '';
   const generationOptions = modelsQuery.data ?? [];
-  const generationError = modelsQuery.error?.message ?? '';
+  const generationError = modelsQuery.error?.message ?? settingsQuery.error?.message ?? '';
   const [selectedGeneration, setGenerationValue] = useState('');
-  const savedGeneration = getPreferredGeneration();
+  const savedGeneration = settingsQuery.data?.defaultGeneration;
   const preferred = generationOptions.find(
     (option) =>
       option.provider === savedGeneration?.provider && option.model === savedGeneration?.model,
   );
-  const defaultOption = preferred ?? generationOptions[0];
+  const defaultOption = preferred?.available ? preferred : generationOptions[0];
   const generationValue =
     selectedGeneration || (defaultOption ? `${defaultOption.provider}:${defaultOption.model}` : '');
   const [createOpen, setCreateOpen] = useState(false);
@@ -116,7 +118,9 @@ export function HomeDashboard() {
             type="button"
             className="primary-button"
             aria-label="New Study Pill"
-            disabled={!chosenGeneration?.available}
+            disabled={
+              !chosenGeneration?.available || settingsQuery.isPending || settingsQuery.isError
+            }
             onClick={() => setCreateOpen(true)}
           >
             <PlusIcon size={17} weight="bold" /> <span>New Study Pill</span>
@@ -146,20 +150,10 @@ export function HomeDashboard() {
                   );
                   if (!option) return;
                   setGenerationValue(event.target.value);
-                  setPreferredGeneration({ provider: option.provider, model: option.model });
                 }}
               >
-                {(['ollama', 'openai', 'anthropic'] as const).map((provider) => (
-                  <optgroup
-                    key={provider}
-                    label={
-                      provider === 'ollama'
-                        ? 'Ollama'
-                        : provider === 'openai'
-                          ? 'OpenAI'
-                          : 'Anthropic'
-                    }
-                  >
+                {providerOrder.map((provider) => (
+                  <optgroup key={provider} label={providerLabels[provider]}>
                     {generationOptions
                       .filter((option) => option.provider === provider)
                       .map((option) => (
@@ -169,6 +163,9 @@ export function HomeDashboard() {
                           disabled={!option.available}
                         >
                           {option.label}
+                          {option.tier && option.tier !== 'local'
+                            ? ` · ${tierLabels[option.tier]}`
+                            : ''}
                           {option.available ? '' : ' · unavailable'}
                         </option>
                       ))}
@@ -179,6 +176,7 @@ export function HomeDashboard() {
             <p role={generationError ? 'alert' : undefined}>
               {generationError || chosenGeneration?.reason || 'Used for new Study Pills.'}
             </p>
+            <Link href="/settings">Manage models and API keys</Link>
             {generationOptions.some((option) => !option.available) ? (
               <details className="home-generation-availability">
                 <summary>Unavailable models</summary>

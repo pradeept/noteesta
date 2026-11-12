@@ -7,17 +7,20 @@ import httpx
 import jwt
 from authlib.common.errors import AuthlibBaseError
 from authlib.integrations.httpx_client import AsyncOAuth2Client
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
+from src.auth.schemas import EmailInput
 from src.auth.security import digest, fail, now, rate_limit
-from src.auth.service import new_session
+from src.auth.service import consume_token, new_session, send_token
 from src.config import get_settings
 
 GOOGLE_ISSUER = "https://accounts.google.com"
 STATE_COOKIE = "noteesta_oauth"
+LINK_COOKIE = "noteesta_google_link"
+LINK_COOKIE_PATH = "/api/v1/auth/verify-google-email"
 
 
 def safe_return_path(value: str) -> str:
@@ -113,49 +116,99 @@ async def google_identity(request: Request, transaction: dict) -> dict:
     return dict(claims)
 
 
-async def link_google(database: AsyncDatabase, identity: dict) -> dict:
-    user = await database.users.find_one({"google_sub": identity["sub"]})
-    if user:
-        return user
-    email = identity["email"].lower()
-    user = await database.users.find_one({"email": email})
-    if not user:
-        user = {
-            "_id": str(uuid4()),
-            "email": email,
-            "display_name": identity.get("name") or email,
-            "email_verified": True,
-            "google_sub": identity["sub"],
-            "password_hash": None,
-            "created_at": now(),
-            "credential_version": 0,
-        }
-        try:
-            await database.users.insert_one(user)
-            return user
-        except DuplicateKeyError:
-            return await link_google(database, identity)
-    if user.get("google_sub") and user["google_sub"] != identity["sub"]:
-        raise fail("account_conflict", "Sign in to your existing account to continue.", 409)
-    update = {"google_sub": identity["sub"], "email_verified": True}
+def google_owns_email(identity: dict) -> bool:
+    return identity.get("email_verified") is True and (
+        identity["email"].lower().endswith("@gmail.com")
+        or (isinstance(identity.get("hd"), str) and bool(identity["hd"].strip()))
+    )
+
+
+async def attach_google(database: AsyncDatabase, user: dict, subject: str) -> dict | None:
+    update = {"google_sub": subject, "google_link_verified": True, "email_verified": True}
     if not user["email_verified"]:
         update.update(password_hash=None, credential_version=user.get("credential_version", 0) + 1)
     result = await database.users.update_one(
         {
             "_id": user["_id"],
+            "email": user["email"],
             "google_sub": user.get("google_sub"),
+            "google_link_verified": user.get("google_link_verified"),
             "email_verified": user["email_verified"],
             "credential_version": user.get("credential_version", 0),
         },
         {"$set": update},
     )
     if not result.matched_count:
-        return await link_google(database, identity)
-    if not user["email_verified"]:
-        await database.auth_email_tokens.update_many(
-            {"user_id": user["_id"]}, {"$set": {"used_at": now()}}
-        )
+        return None
+    token_query = {"user_id": user["_id"]}
+    if user["email_verified"]:
+        token_query["purpose"] = "google"
+    await database.auth_email_tokens.update_many(token_query, {"$set": {"used_at": now()}})
     return {**user, **update}
+
+
+async def link_google(
+    database: AsyncDatabase, identity: dict, request: Request, binding: str
+) -> dict | None:
+    email = EmailInput(email=identity["email"]).email
+    authoritative = google_owns_email(identity)
+    user = await database.users.find_one({"google_sub": identity["sub"]})
+    if user and user.get("google_link_verified") is True:
+        return user
+    if not user:
+        user = await database.users.find_one({"email": email})
+    if not user:
+        user = {
+            "_id": str(uuid4()),
+            "email": email,
+            "display_name": identity.get("name") or email,
+            "email_verified": authoritative,
+            "password_hash": None,
+            "created_at": now(),
+            "credential_version": 0,
+        }
+        if authoritative:
+            user.update(google_sub=identity["sub"], google_link_verified=True)
+        try:
+            await database.users.insert_one(user)
+        except DuplicateKeyError:
+            return await link_google(database, identity, request, binding)
+        if authoritative:
+            return user
+    if user.get("google_sub") and user["google_sub"] != identity["sub"]:
+        raise fail("account_conflict", "Sign in to your existing account to continue.", 409)
+    # Legacy links without recorded ownership proof must also pass this check.
+    if authoritative and user["email"] == email:
+        linked = await attach_google(database, user, identity["sub"])
+        if linked is None:
+            return await link_google(database, identity, request, binding)
+        return linked
+    await rate_limit(request, "google-email", user["email"])
+    await send_token(database, user, "google", google_sub=identity["sub"], binding=binding)
+    return None
+
+
+async def confirm_google_email(database: AsyncDatabase, token: str, binding: str) -> None:
+    entry = await consume_token(database, token, "google", binding=binding)
+    user = await database.users.find_one(
+        {
+            "_id": entry["user_id"],
+            "email": entry["email"],
+            "credential_version": entry["credential_version"],
+            "google_sub": entry["previous_google_sub"],
+            "google_link_verified": entry["google_link_verified"],
+        }
+    )
+    if not user or user.get("google_sub") not in {None, entry["google_sub"]}:
+        raise fail("invalid_email_token", "This link has expired or has already been used.", 400)
+    try:
+        linked = await attach_google(database, user, entry["google_sub"])
+    except DuplicateKeyError as exc:
+        raise fail(
+            "account_conflict", "Sign in to your existing account to continue.", 409
+        ) from exc
+    if linked is None:
+        raise fail("invalid_email_token", "This link has expired or has already been used.", 400)
 
 
 async def finish_google(request: Request, database: AsyncDatabase):
@@ -173,8 +226,29 @@ async def finish_google(request: Request, database: AsyncDatabase):
         return response
     try:
         identity = await google_identity(request, transaction)
-        user = await link_google(database, identity)
-    except (httpx.HTTPError, AuthlibBaseError, jwt.PyJWTError, ValueError, KeyError, TypeError):
+        binding = secrets.token_urlsafe(32)
+        user = await link_google(database, identity, request, binding)
+    except (
+        httpx.HTTPError,
+        AuthlibBaseError,
+        jwt.PyJWTError,
+        ValueError,
+        KeyError,
+        TypeError,
+        HTTPException,
+    ):
+        return response
+    if user is None:
+        response.headers["location"] = f"{settings.web_url}/verify-google-email"
+        response.set_cookie(
+            LINK_COOKIE,
+            binding,
+            max_age=1800,
+            httponly=True,
+            samesite="lax",
+            secure=settings.app_env != "development",
+            path=LINK_COOKIE_PATH,
+        )
         return response
     response.headers["location"] = (
         f"{settings.web_url}/auth/callback?{urlencode({'returnTo': transaction['return_to']})}"

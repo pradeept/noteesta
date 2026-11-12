@@ -3,7 +3,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HomeDashboard } from '@/components/home-dashboard';
-import { getPreferredGeneration } from '@/lib/generation-preference';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/components/app-providers', () => ({
@@ -16,6 +15,9 @@ vi.mock('@/components/app-providers', () => ({
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/api', () => ({
   createPill: vi.fn(),
+  getAISettings: vi
+    .fn()
+    .mockResolvedValue({ defaultGeneration: { provider: 'ollama', model: 'gemma4:26b' } }),
   listPills: vi.fn().mockResolvedValue([]),
   listCollections: vi.fn().mockResolvedValue([]),
   listLibrary: vi.fn().mockResolvedValue([]),
@@ -39,7 +41,7 @@ vi.mock('@/lib/api', () => ({
       model: 'claude-sonnet-5-5',
       label: 'Anthropic · Sonnet 5.5',
       available: false,
-      reason: 'Set ANTHROPIC_API_KEY.',
+      reason: 'Add your Anthropic key in Settings.',
     },
   ]),
 }));
@@ -47,7 +49,7 @@ vi.mock('@/lib/api', () => ({
 afterEach(() => localStorage.clear());
 
 describe('workspace generation model', () => {
-  it('saves the selected model and explains unavailable choices', async () => {
+  it('loads the account default and lets a workspace override stay local to this view', async () => {
     render(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
@@ -56,12 +58,11 @@ describe('workspace generation model', () => {
       </QueryClientProvider>,
     );
     const picker = await screen.findByLabelText('Generation model');
-    await waitFor(() =>
-      expect((picker as HTMLSelectElement).value).toBe('ollama:qwen3-vl:8b-instruct'),
-    );
-    fireEvent.change(picker, { target: { value: 'ollama:gemma4:26b' } });
-    expect(getPreferredGeneration()).toEqual({ provider: 'ollama', model: 'gemma4:26b' });
+    await waitFor(() => expect((picker as HTMLSelectElement).value).toBe('ollama:gemma4:26b'));
+    fireEvent.change(picker, { target: { value: 'ollama:qwen3-vl:8b-instruct' } });
+    expect((picker as HTMLSelectElement).value).toBe('ollama:qwen3-vl:8b-instruct');
+    expect(localStorage.length).toBe(0);
     fireEvent.click(screen.getByText('Unavailable models'));
-    expect(screen.getByText(/Set ANTHROPIC_API_KEY/)).toBeTruthy();
+    expect(screen.getByText(/Add your Anthropic key in Settings/)).toBeTruthy();
   });
 });

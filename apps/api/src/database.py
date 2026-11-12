@@ -26,6 +26,9 @@ async def database_dependency() -> AsyncIterator[AsyncDatabase]:
 
 async def ensure_indexes() -> None:
     database = get_database()
+    await database.provider_credentials.create_index(
+        [("user_id", ASCENDING), ("provider", ASCENDING)], unique=True
+    )
     await database.users.create_index("email", unique=True)
     await database.users.create_index(
         "google_sub", unique=True, partialFilterExpression={"google_sub": {"$type": "string"}}

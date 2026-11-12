@@ -17,7 +17,6 @@ class LoginInput(EmailInput):
 
 
 class RegisterInput(EmailInput):
-    password: str = Field(min_length=12, max_length=128)
     display_name: str = Field(min_length=1, max_length=100)
 
 
@@ -26,6 +25,10 @@ class TokenInput(ApiModel):
 
 
 class ResetInput(TokenInput):
+    password: str = Field(min_length=12, max_length=128)
+
+
+class VerifyEmailInput(TokenInput):
     password: str = Field(min_length=12, max_length=128)
 
 

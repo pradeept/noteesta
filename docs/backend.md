@@ -87,3 +87,20 @@ uv build --wheel
 If Ruff, Black, or pytest is unavailable, run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
 
 Unit and route tests mock external services. Auth coverage includes verification/recovery, JWT validation, refresh rotation/replay, revocation, Google linking/state/PKCE, and user isolation. The HTTP regression tests cover file/YouTube creation, collection ownership and persistence, bulk moves and deletion, library operations, model listing, and the health route. Run real ingestion and generation separately with the required services and models available. Promptfoo suites evaluate prompts against live Ollama and are independent of pytest.
+
+
+## Personal AI provider settings
+
+All routes require a verified account and scope records by its authenticated user ID.
+
+| Route | Behavior |
+| --- | --- |
+| `GET /api/v1/settings/ai` | Account default, masked provider-key status, connection-tested model IDs and model availability |
+| `PATCH /api/v1/settings/ai` | Save `{defaultGeneration: {provider, model}}`; curated presets only |
+| `PATCH /api/v1/settings/ai/providers/{provider}` | Save/replace `{apiKey}` with Fernet encryption; returns 204 |
+| `DELETE /api/v1/settings/ai/providers/{provider}` | Remove that account’s saved key; returns 204 |
+| `POST /api/v1/settings/ai/providers/{provider}/test` | Send `{model}` to test access and structured JSON with synthetic input |
+
+Hosted IDs are `openai`, `anthropic`, `gemini`, `huggingface`, `deepseek`, and `zai`. User-facing operations ignore legacy server provider keys. Omitted creation selections use the account default (Ollama for a new account); explicit creation selections override it. Missing personal credentials fall back to the configured Ollama model; invalid credentials and provider errors do not. Workers resolve keys from the Pill owner at execution time. `effectiveGeneration` records the actual model on generated Pills and chat responses. 3D uses the same resolved adapter.
+
+`provider_credentials` has a unique `(user_id, provider)` index and holds encrypted keys, a masked suffix, timestamps and tested preset IDs. `ai_settings` uses the user ID as `_id`. API/worker encryption-key provisioning and backup instructions are in the root README. Secret validation errors intentionally omit rejected request inputs. Account settings and model queries contain no plaintext or encrypted credentials.

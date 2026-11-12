@@ -118,7 +118,25 @@ async def rotate_session(database: AsyncDatabase, token: str, response: Response
     return token_response(user, session["_id"])
 
 
-async def send_token(database: AsyncDatabase, user: dict, purpose: str) -> None:
+async def send_token(
+    database: AsyncDatabase,
+    user: dict,
+    purpose: str,
+    *,
+    google_sub: str | None = None,
+    binding: str | None = None,
+) -> None:
+    extra = {}
+    if purpose == "google":
+        if not google_sub or not binding:
+            raise ValueError("Google confirmation requires a subject and browser binding.")
+        extra = {
+            "email": user["email"],
+            "google_sub": google_sub,
+            "previous_google_sub": user.get("google_sub"),
+            "google_link_verified": user.get("google_link_verified"),
+            "binding": digest(binding),
+        }
     token = secrets.token_urlsafe(32)
     await database.auth_email_tokens.insert_one(
         {
@@ -126,19 +144,28 @@ async def send_token(database: AsyncDatabase, user: dict, purpose: str) -> None:
             "user_id": user["_id"],
             "purpose": purpose,
             "credential_version": user.get("credential_version", 0),
+            **extra,
             "used_at": None,
             "expires_at": now()
-            + timedelta(
-                hours=24 if purpose == "verify" else 0, minutes=30 if purpose == "reset" else 0
-            ),
+            + (timedelta(hours=24) if purpose == "verify" else timedelta(minutes=30)),
         }
     )
     await send_account_email(user["email"], token, purpose)
 
 
-async def consume_token(database: AsyncDatabase, token: str, purpose: str) -> dict:
+async def consume_token(
+    database: AsyncDatabase, token: str, purpose: str, *, binding: str | None = None
+) -> dict:
+    query = {
+        "_id": digest(token),
+        "purpose": purpose,
+        "used_at": None,
+        "expires_at": {"$gt": now()},
+    }
+    if purpose == "google":
+        query["binding"] = digest(binding or "")
     entry = await database.auth_email_tokens.find_one_and_update(
-        {"_id": digest(token), "purpose": purpose, "used_at": None, "expires_at": {"$gt": now()}},
+        query,
         {"$set": {"used_at": now()}},
     )
     if not entry:

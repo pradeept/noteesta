@@ -81,6 +81,7 @@ class PillRepository:
                 "javascript": javascript,
                 "handoff": handoff,
                 "model": model,
+                "provider": (pill.effective_generation or pill.generation).provider,
                 "version": 1,
                 "generated_at": datetime.now(UTC),
             },

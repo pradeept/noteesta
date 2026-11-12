@@ -1,14 +1,13 @@
-"""Turn a cited Qwen handoff into bounded Three.js scene code."""
+"""Turn a cited spatial handoff into bounded Three.js scene code."""
 
 import json
 import re
 from typing import Any
 
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from src.common.schemas.schemas import Citation, Source, ThreeDMetadata
-from src.config import get_settings
+from src.generation import GenerationClient
 from src.services.orchestration import StudyPillOrchestrator
 
 MAX_JAVASCRIPT_BYTES = 64 * 1024
@@ -32,12 +31,8 @@ def validate_scene_code(javascript: str) -> str:
     return code
 
 
-async def generate_scene_code(handoff: dict[str, Any]) -> str:
-    """Ask GPT-5.4 for geometry code using only the grounded spatial brief."""
-
-    settings = get_settings()
-    if not settings.openai_api_key:
-        raise ValueError("OpenAI API key is not configured for 3D generation")
+async def generate_scene_code(handoff: dict[str, Any], client: GenerationClient) -> str:
+    """Use the Pill's resolved model and only its grounded spatial brief."""
 
     instructions = (
         "Create a small, educational Three.js schematic from the supplied source-grounded brief. "
@@ -50,18 +45,12 @@ async def generate_scene_code(handoff: dict[str, Any]) -> str:
         "Use only parts and spatial relationships in the brief; do not add unsupported anatomy. "
         "Keep the geometry simple enough for a mobile GPU."
     )
-    async with AsyncOpenAI(api_key=settings.openai_api_key, timeout=120, max_retries=1) as client:
-        response = await client.responses.parse(
-            model=settings.openai_3d_model,
-            instructions=instructions,
-            input=json.dumps(handoff, ensure_ascii=False),
-            text_format=SceneCode,
-            max_output_tokens=12000,
-            store=False,
-        )
-    if response.output_parsed is None:
-        raise ValueError("GPT-5.4 did not return a 3D scene")
-    return validate_scene_code(response.output_parsed.javascript)
+    response = await client.generate_json(
+        instructions + "\n\nGrounded brief:\n" + json.dumps(handoff, ensure_ascii=False),
+        SceneCode.model_json_schema(),
+        num_predict=12000,
+    )
+    return validate_scene_code(SceneCode.model_validate(response).javascript)
 
 
 async def prepare_three_d(
@@ -69,7 +58,7 @@ async def prepare_three_d(
     grounded_notes: str,
     sources: dict[str, Source],
 ) -> tuple[ThreeDMetadata, str | None, dict[str, Any] | None]:
-    """Validate Qwen's spatial handoff before spending an OpenAI request."""
+    """Validate the spatial handoff before requesting scene code."""
 
     raw = await orchestrator.generate_three_d_handoff(grounded_notes=grounded_notes)
     if not raw.get("suitable"):
@@ -114,7 +103,7 @@ async def prepare_three_d(
         "parts": clean_parts,
         "evidence": [citation.model_dump(mode="json", by_alias=True) for citation in citations],
     }
-    javascript = await generate_scene_code(handoff)
+    javascript = await generate_scene_code(handoff, orchestrator.client)
     return (
         ThreeDMetadata(status="ready", title=title, description=description, citations=citations),
         javascript,

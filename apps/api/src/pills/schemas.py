@@ -25,6 +25,7 @@ class StudyPill(ApiModel):
     stage: str | None = None
     selected_materials: list[MaterialKey] = Field(default_factory=lambda: [MaterialKey.notes])
     generation: GenerationSelection = Field(default_factory=default_generation)
+    effective_generation: GenerationSelection | None = None
     sources: list[Source] = Field(default_factory=list)
     artifact: StudyArtifact | None = None
     updated_at: datetime = Field(default_factory=utc_now)

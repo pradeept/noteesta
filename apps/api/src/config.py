@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -56,9 +56,7 @@ class Settings(BaseSettings):
     ollama_timeout_seconds: float = 300
     ollama_num_ctx: int = 32768
 
-    openai_api_key: str | None = None
-    openai_3d_model: str = "gpt-5.4"
-    anthropic_api_key: str | None = None
+    provider_keys_encryption_key: SecretStr = SecretStr("")
 
     whisper_model: str = "small"
     whisper_device: str = "auto"

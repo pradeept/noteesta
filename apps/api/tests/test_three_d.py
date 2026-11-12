@@ -13,6 +13,7 @@ from src.services.three_d import prepare_three_d, validate_scene_code
 class FakeOrchestrator:
     def __init__(self, response: dict):
         self.response = response
+        self.client = object()
 
     async def generate_three_d_handoff(self, *, grounded_notes: str) -> dict:
         assert grounded_notes
@@ -65,7 +66,8 @@ async def test_handoff_requires_source_evidence_before_openai(
 async def test_suitable_handoff_sends_only_cited_brief(monkeypatch: pytest.MonkeyPatch) -> None:
     received = {}
 
-    async def fake_generate(brief: dict) -> str:
+    async def fake_generate(brief: dict, client) -> str:
+        assert client is not None
         received.update(brief)
         return "function buildArtifact(THREE, scene) { scene.add(new THREE.Group()); }"
 
