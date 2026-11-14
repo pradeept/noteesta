@@ -25,10 +25,12 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
    ollama list
    ```
 
-2. Install the frontend with pnpm:
+2. Install the frontend with pnpm from its app directory. Its package manifest, lockfile, and tool settings live in `apps/web/`:
 
    ```bash
+   cd apps/web
    pnpm install
+   cd ../..
    ```
 
 3. Install the backend with uv. The project includes Docling, faster-whisper, and yt-dlp because source ingestion supports documents, recordings, and accessible YouTube captions:
@@ -48,7 +50,7 @@ The implemented vertical slice follows the architecture in [`docs/system-archite
 5. Run each process in its own terminal:
 
    ```bash
-   pnpm dev:web
+   cd apps/web && pnpm dev
    ```
 
    ```bash
@@ -125,12 +127,13 @@ done
 ## Verification
 
 ```bash
-pnpm lint:web
+cd apps/web
+pnpm lint
 pnpm typecheck
 pnpm test
-pnpm build:web
+pnpm build
 
-cd apps/api
+cd ../api
 uv run ruff check .
 uv run black --check .
 uv run pytest
@@ -140,7 +143,7 @@ Black formats backend Python files with `cd apps/api && uv run black .`; Ruff re
 
 If Ruff, Black, or pytest is unavailable (for example, `Failed to spawn: ruff`), run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
 
-Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. At the repository root, `pnpm verify` runs all four frontend checks above.
+Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. From `apps/web/`, `pnpm verify` runs all four frontend checks above. Use `pnpm format` or `pnpm format:check` there to format or check frontend files.
 
 To verify API packaging, run `cd apps/api && uv build --wheel`. The wheel includes `src/`, `workers/`, the `main.py` entrypoint, and `evals/prompts/`.
 

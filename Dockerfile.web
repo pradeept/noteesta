@@ -1,31 +1,29 @@
 FROM node:24-alpine AS base
 RUN corepack enable
-WORKDIR /app
+WORKDIR /app/apps/web
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/package.json
+COPY apps/web/package.json apps/web/pnpm-lock.yaml apps/web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-COPY . .
+COPY --from=deps /app/apps/web/node_modules ./node_modules
+COPY apps/web/ ./
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ARG NOTEESTA_SITE_URL=https://noteesta.com
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NOTEESTA_SITE_URL=$NOTEESTA_SITE_URL
-RUN pnpm build:web
+RUN pnpm build
 
 FROM node:24-alpine AS runner
 ARG NOTEESTA_SITE_URL=https://noteesta.com
 ENV NODE_ENV=production NOTEESTA_SITE_URL=$NOTEESTA_SITE_URL NOTEESTA_ENABLE_WORKSPACE=false
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=build /app/apps/web/public ./apps/web/public
+COPY --from=build /app/apps/web/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
-CMD ["node", "apps/web/server.js"]
+CMD ["node", "server.js"]

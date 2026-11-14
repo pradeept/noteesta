@@ -166,7 +166,7 @@ For every MCQ, require:
 
 ## Implementation toolchain
 
-- Manage the Next.js frontend exclusively with **pnpm**. Commit `pnpm-lock.yaml`; from the repository root use `pnpm dev:web`, `pnpm build:web`, and `pnpm test`. Use pnpm in the frontend container build.
+- Manage the Next.js frontend exclusively with **pnpm**. Commit `apps/web/pnpm-lock.yaml`; from `apps/web/` use `pnpm dev`, `pnpm build`, and `pnpm test`. Use pnpm in the frontend container build.
 - Manage the Python backend exclusively with **uv**. The backend is a uv project rooted at `apps/api/`, with `fastapi[standard]` as its web framework dependency. From that directory use `uv sync --extra dev`, `uv run fastapi dev main.py`, and `uv run pytest`.
 - Run structured generation through the shared prompt files in `apps/api/evals/prompts/` and evaluate the core prompt jobs with Promptfoo against the configured local Ollama model.
 - Keep Promptfoo configuration, providers, and assertions with the FastAPI project under `apps/api/evals/`; implement the provider and assertions in Python. Promptfoo's Node CLI may be invoked through `pnpm dlx`, but it must not be a dependency or script of the Next.js package.
