@@ -25,6 +25,7 @@ from src.database import database_dependency
 from src.dependencies.profile import current_user_id
 from src.generation import GenerationError, resolve_generation, valid_selection
 from src.models.schemas import GenerationSelection
+from src.pills.notes import NotesRepository
 from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.repository import PillRepository
 from src.services.chat import answer_question
@@ -356,7 +357,8 @@ async def export_study_pill(
         raise HTTPException(status_code=404, detail="Study Pill not found.")
     if pill.status != "ready" or not pill.artifact:
         raise HTTPException(status_code=409, detail="This Study Pill is not ready to export.")
-    archive = await build_export(pill, get_storage())
+    notes = await NotesRepository(database).current(pill)
+    archive = await build_export(pill, get_storage(), notes)
     filename = re.sub(r"[^a-z0-9]+", "-", pill.title.lower()).strip("-")[:80]
     filename = filename or "study-pill"
     return StreamingResponse(

@@ -38,6 +38,9 @@ async def ensure_indexes() -> None:
         await table.create_index("expires_at", expireAfterSeconds=0)
     await database.auth_email_tokens.create_index("user_id")
     await database.pills.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
+    await database.pill_note_revisions.create_index(
+        [("user_id", ASCENDING), ("pill_id", ASCENDING)]
+    )
     await database.collections.create_index(
         [("user_id", ASCENDING), ("name", ASCENDING)], unique=True
     )

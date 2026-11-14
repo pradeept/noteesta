@@ -19,7 +19,10 @@ from src.settings import router as settings_routes
 @pytest.fixture
 def account_api(monkeypatch):
     database = SimpleNamespace(
-        provider_credentials=FakeTable(), ai_settings=FakeTable(), pills=FakeTable()
+        provider_credentials=FakeTable(),
+        ai_settings=FakeTable(),
+        pills=FakeTable(),
+        pill_note_revisions=FakeTable(),
     )
     identity = {"id": "alice"}
     monkeypatch.setenv("OPENAI_API_KEY", "server-key-must-never-be-used")

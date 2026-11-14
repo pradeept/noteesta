@@ -10,8 +10,51 @@ import type {
   AISettings,
   GenerationSelection,
   HostedProvider,
+  NoteVersion,
+  NoteDocument,
+  NoteHistory,
 } from '@/lib/types';
 import { authenticatedFetch, sessionEpoch } from '@/lib/session';
+
+export function getNotes(id: string, signal?: AbortSignal): Promise<NoteVersion> {
+  return request(`/pills/${id}/notes`, { signal });
+}
+
+export function saveNotes(
+  id: string,
+  document: NoteDocument,
+  baseRevisionId: string,
+  mutationId: string,
+): Promise<NoteVersion> {
+  return request(`/pills/${id}/notes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document, baseRevisionId, mutationId }),
+  });
+}
+
+export function getNoteVersions(id: string, cursor?: string): Promise<NoteHistory> {
+  return request(
+    `/pills/${id}/notes/versions${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+  );
+}
+
+export function getNoteVersion(id: string, revisionId: string): Promise<NoteVersion> {
+  return request(`/pills/${id}/notes/versions/${revisionId}`);
+}
+
+export function restoreNotes(
+  id: string,
+  revisionId: string,
+  baseRevisionId: string,
+  mutationId: string,
+): Promise<NoteVersion> {
+  return request(`/pills/${id}/notes/versions/${revisionId}/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseRevisionId, mutationId }),
+  });
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const started = sessionEpoch();

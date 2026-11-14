@@ -16,3 +16,4 @@ The SVG diagrams and Mermaid sources preserve the original proposed flows, inclu
 
 
 - [Authentication and frontend data](authentication.md): account setup, Google/Resend configuration, token lifecycle, caching, and local reset.
+- [Note editing and history](note-editing.md): autosave, rich formatting, section references, version restoration, and API storage.

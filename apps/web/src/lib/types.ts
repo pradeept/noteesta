@@ -164,10 +164,43 @@ export interface StudyPill {
   effectiveGeneration?: GenerationSelection | null;
   sources: Source[];
   artifact?: StudyArtifact;
+  notesRevisionId?: string | null;
   updatedAt: string;
   processingDurationSeconds?: number | null;
   error?: string;
   isDemo?: boolean;
+}
+
+export interface NoteDocument {
+  type: string;
+  attrs?: Record<string, unknown>;
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  content?: NoteDocument[];
+}
+
+export interface NoteVersionSummary {
+  revisionId: string;
+  groupId: string;
+  createdAt: string;
+  kind: 'generated' | 'edited' | 'restored';
+  excerpt: string;
+}
+
+export interface NoteVersion extends NoteVersionSummary {
+  document: NoteDocument | null;
+  generated: {
+    summary: string;
+    sections: Array<{ id: string; title: string; markdown: string; citationIds: string[] }>;
+  } | null;
+  references: Record<string, Citation>;
+  visuals: VisualSpec[];
+}
+
+export interface NoteHistory {
+  items: NoteVersionSummary[];
+  nextCursor: string | null;
+  currentRevisionId: string;
 }
 
 export interface ChatAnswer {

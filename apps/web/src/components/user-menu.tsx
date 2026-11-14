@@ -5,16 +5,19 @@ import Link from 'next/link';
 import { DropdownMenu } from 'radix-ui';
 import { toast } from 'sonner';
 import { useSession } from '@/components/app-providers';
+import { useOptionalNotesGuard } from '@/components/notes-save-guard';
 import { signOut } from '@/lib/session';
 
 export function UserMenu() {
   const { user } = useSession();
+  const notesGuard = useOptionalNotesGuard();
   const [busy, setBusy] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);
   if (!user) return null;
   async function logout(everywhere: boolean) {
     setBusy(true);
     try {
+      await notesGuard?.flushNotes();
       await signOut(everywhere);
       toast.success('Signed out.');
     } catch (error) {

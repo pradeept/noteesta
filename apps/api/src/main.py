@@ -15,6 +15,7 @@ from src.generation import GenerationError
 from src.health.router import health_router
 from src.library.router import router as library_router
 from src.models.router import router as models_router
+from src.pills.notes import router as notes_router
 from src.pills.router import pills_router
 from src.settings.router import router as settings_router
 from src.storage import get_storage
@@ -52,7 +53,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Noteesta-Client"],
 )
 
@@ -68,6 +69,7 @@ async def private_cache_headers(request, call_next):
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(pills_router, prefix="/api/v1")
+app.include_router(notes_router, prefix="/api/v1")
 app.include_router(collections_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
