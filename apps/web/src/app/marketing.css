@@ -24,8 +24,7 @@
 }
 .marketing-page a:focus-visible,
 .demo-page a:focus-visible,
-.demo-page summary:focus-visible,
-.marketing-video:focus-visible {
+.demo-page summary:focus-visible {
   outline: 3px solid #b97536;
   outline-offset: 4px;
 }
@@ -355,7 +354,6 @@
   margin-bottom: 23px !important;
 }
 .marketing-section-heading h2,
-.marketing-walkthrough h2,
 .marketing-origin h2 {
   font-size: clamp(39px, 4vw, 60px);
   line-height: 1.09;
@@ -387,50 +385,6 @@
   font-size: 14px;
   max-width: 51ch;
   margin-top: 8px;
-}
-
-.marketing-walkthrough {
-  max-width: 1440px;
-  margin: auto;
-  padding: clamp(90px, 11vw, 152px) clamp(24px, 5vw, 80px);
-  display: grid;
-  grid-template-columns: 0.82fr 1.18fr;
-  align-items: center;
-  gap: clamp(50px, 8vw, 130px);
-}
-.marketing-walkthrough-copy > p:not(.marketing-kicker) {
-  color: var(--m-muted);
-  line-height: 1.67;
-  font-size: 15px;
-  max-width: 52ch;
-  margin: 23px 0 25px;
-}
-.marketing-video-frame {
-  background: #dfeade;
-  padding: 14px;
-  border-radius: 14px;
-}
-.marketing-video {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 7px;
-  background: #e6eee4;
-}
-.marketing-video-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 12px 0 0 2px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--m-green) !important;
-}
-.marketing-video-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 
 .marketing-vision {
@@ -978,7 +932,6 @@
   }
   .marketing-hero,
   .marketing-day,
-  .marketing-walkthrough,
   .marketing-origin {
     grid-template-columns: 1fr;
   }
@@ -992,7 +945,6 @@
     margin: auto;
   }
   .marketing-day,
-  .marketing-walkthrough,
   .marketing-origin {
     gap: 45px;
   }

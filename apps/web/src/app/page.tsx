@@ -162,42 +162,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="marketing-walkthrough" aria-labelledby="walkthrough-title">
-          <div className="marketing-walkthrough-copy">
-            <p className="marketing-kicker">Watch the product</p>
-            <h2 id="walkthrough-title">See Noteesta in action.</h2>
-            <p>
-              Watch the Noteesta demo, then explore the read-only Study Pill to follow its sources,
-              notes, visual explanation, and practice at your own pace.
-            </p>
-            <Link className="marketing-text-link" href="/app">
-              Open the example note <span aria-hidden="true">↗</span>
-            </Link>
-          </div>
-          <div className="marketing-video-frame">
-            <iframe
-              className="marketing-video"
-              src="https://www.youtube.com/embed/_2Bphk7JLCk"
-              title="Noteesta - Hacktoberfest 2026 demo video"
-              width="960"
-              height="540"
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-            <a
-              className="marketing-video-link"
-              href="https://youtu.be/_2Bphk7JLCk"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Watch on YouTube <span aria-hidden="true">↗</span>
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          </div>
-        </section>
-
         <section className="marketing-vision" id="our-direction" aria-labelledby="vision-title">
           <div className="marketing-vision-top">
             <p className="marketing-kicker">Where Noteesta is going</p>
