@@ -4,7 +4,7 @@ Noteesta owns its accounts in FastAPI and MongoDB. Email/password and Google sig
 
 ## Local setup
 
-1. Install dependencies with `pnpm install` and, from `apps/api`, `uv sync --extra dev`.
+1. Install frontend dependencies with `cd apps/web && pnpm install` and, from `apps/api`, `uv sync --extra dev`.
 2. Start MongoDB, Redis, and object storage as described in the root README. Auth rate limiting needs Redis even when generation is not running.
 3. In `apps/api/.env`, set a stable `JWT_SECRET` (generate with `openssl rand -hex 32`), `WEB_URL=http://localhost:3000`, and `CORS_ORIGINS=http://localhost:3000`. An empty secret is supported only in development and invalidates sessions on process restart; use a stable secret for multiple API processes.
 4. Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`, start both applications, and open `/register`.
@@ -88,6 +88,6 @@ Execution removes account/session/OAuth/email records, pills/collections/chunks/
 
 ## Verification
 
-Run backend checks from `apps/api`: `uv run pytest`, `uv run ruff check .`, and `uv run black --check .`. If the tools are missing, install with `uv sync --extra dev`. Run frontend unit checks with `pnpm test`, `pnpm lint:web`, and `pnpm typecheck`; build with `pnpm build:web`.
+Run backend checks from `apps/api`: `uv run pytest`, `uv run ruff check .`, and `uv run black --check .`. If the tools are missing, install with `uv sync --extra dev`. From `apps/web`, run frontend unit checks with `pnpm test`, `pnpm lint`, and `pnpm typecheck`; build with `pnpm build`.
 
-Unit/HTTP tests mock external integrations. Browser tests use mocked Google/Resend/API responses and run with `pnpm --filter web test:e2e` after installing a Playwright Chromium browser. For a live smoke check, register and verify through your configured email provider, sign in, reload, sign out on one/all devices, complete Google sign-in with a fresh account and a matching verified email, and exercise an owned upload/download/export. Live Google/Resend verification requires configured credentials and domains.
+Unit/HTTP tests mock external integrations. Browser tests use mocked Google/Resend/API responses and run with `pnpm test:e2e` from `apps/web` after installing a Playwright Chromium browser. For a live smoke check, register and verify through your configured email provider, sign in, reload, sign out on one/all devices, complete Google sign-in with a fresh account and a matching verified email, and exercise an owned upload/download/export. Live Google/Resend verification requires configured credentials and domains.
