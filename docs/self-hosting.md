@@ -1,0 +1,140 @@
+# Self-hosting and development notes
+
+Start with the [Docker Compose](../README.md#docker) or [local development](../README.md#local-setup) instructions in the README. This guide covers infrastructure, provider settings, and operational details.
+
+## Atlas Vector Search
+
+Create an Atlas deployment, database user, and network access entry for the API and worker. Put its connection string in `MONGODB_URI` in `apps/api/.env`. Wait for the vector index to be ready before using grounded chat.
+
+LangChain provides source chunking, Ollama embeddings, structured generation, and retrieval through MongoDB Atlas Vector Search. The API stores chunks in `noteesta.chunks`; Atlas filters each vector query by the top-level `user_id` and `pill_id` metadata fields.
+
+For Atlas, create the `noteesta` database and `chunks` collection, then add a Vector Search index named `vector_index` with this definition. The 768 dimensions correspond to the default `nomic-embed-text` configuration. If you change the embedding model or its output dimensions, update the index definition and regenerate affected Pills to rebuild their chunks.
+
+```json
+{
+  "fields": [
+    {
+      "type": "vector",
+      "path": "embedding",
+      "numDimensions": 768,
+      "similarity": "cosine"
+    },
+    { "type": "filter", "path": "user_id" },
+    { "type": "filter", "path": "pill_id" }
+  ]
+}
+```
+
+## Ollama connectivity
+
+Ollama provides source embeddings for **every** generation provider. Local generation or missing-key fallback also needs the configured `OLLAMA_MODEL` installed.
+
+| Where API and worker run | Setting                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| On your host             | `OLLAMA_BASE_URL=http://127.0.0.1:11434`                   |
+| In Compose               | `OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434` |
+
+Compose maps `host.docker.internal` to the host gateway and uses the Docker setting to override the containers’ `OLLAMA_BASE_URL`. Ensure Ollama listens on an address reachable from that gateway. For a manually started server:
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+For an existing macOS app, Linux service, or Windows installation, set the environment variable using [Ollama’s configuration instructions](https://docs.ollama.com/faq#how-do-i-configure-ollama-server) and restart that instance. Restrict access to trusted clients.
+
+Check host connectivity and installed tags with:
+
+```bash
+curl http://localhost:11434/api/tags
+ollama list
+```
+
+Use the exact installed generation tag in `OLLAMA_MODEL`. `OLLAMA_NUM_CTX` configures the local model context; `OLLAMA_TIMEOUT_SECONDS` controls the request timeout. Model availability is also exposed by authenticated `GET /api/v1/models`.
+
+## Provider keys and model selection
+
+Open **Settings** from the account menu at `/settings` to add personal provider keys and save an account-wide default model. The workspace Generation model menu overrides that default for a new Pill. Each Pill retains its requested model for retries and grounded chat; its effective model is recorded separately when generation falls back to Ollama. New Pills created from other views use the account default.
+
+Keys are encrypted in MongoDB and never returned in full. Configure one persistent `PROVIDER_KEYS_ENCRYPTION_KEY` on both API and workers before saving keys. Generate it once with `uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'` from `apps/api`, then store it in `apps/api/.env` (or your deployment secret manager). Back up this key separately from the database. Replacing or losing it makes existing saved provider credentials unreadable; restore it or replace the affected personal keys in Settings. Missing encryption configuration disables hosted-key operations but leaves Ollama usable. Never expose the encryption key through a `NEXT_PUBLIC_*` variable.
+
+Hosted generation credentials are managed exclusively through Settings. A missing personal key falls back to the configured Ollama generation model. Invalid keys, access restrictions, quota errors, provider outages and undecryptable credentials produce explicit errors rather than switching models. In-flight operations may finish using the credential they already resolved; replacement and deletion affect subsequent operations. `GET /api/v1/models` reports account-specific availability. Keep Ollama’s `nomic-embed-text` available for embeddings; hosted generation does not require the local generation model to be installed.
+
+Hosted open models work through their inference APIs; Hugging Face tokens must allow Inference Providers calls. Z.ai uses a standard API key and standard endpoint, not a GLM Coding Plan subscription key. Provider availability and billing depend on the user’s account. Connection testing sends a small synthetic JSON request, never study sources, and may incur a small provider charge. Study generation and chat send selected source text to the chosen provider. See [preset comparison guidance](../apps/api/evals/README.md) for model sources and live evaluation instructions.
+
+## Storage and generated artifacts
+
+Compose starts SeaweedFS with persistent object storage in the `seaweedfs-data` volume. API and worker containers use `http://seaweedfs:8333`; processes on the host use `http://localhost:8333`. Credentials and bucket settings come from `apps/api/.env`. The application creates its configured bucket automatically. Port 8333 is an S3 API endpoint, not a web console.
+
+Original files, canonical extraction JSON, and generated PNG visuals live in object storage. Notes and practice artifacts live in MongoDB. Interactive 3D JavaScript and its cited handoff live in the `pill_three_d` collection and load through an owner-scoped endpoint when the 3D tab opens. ZIP export contains Markdown and PNG visuals; it excludes original files and interactive models.
+
+Stopping Compose with `down` retains the named storage volume. Removing that volume deletes stored objects; back up both MongoDB and object storage when keeping real study materials. Development email previews inside the API container are not in that volume and can disappear when the container is recreated; resend verification to generate a new preview if needed.
+
+## Public deployments
+
+The supplied Compose file is a local development/self-hosting configuration. For a public deployment:
+
+- Set `APP_ENV=production`, a stable `JWT_SECRET` of at least 32 characters, and your persistent provider-key encryption key if using BYOK.
+- Configure `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` on a verified sender domain. Production startup requires Resend and an HTTPS `WEB_URL`.
+- Set `WEB_URL` and `CORS_ORIGINS` to the exact frontend origin. Keep frontend and API under the same parent domain and use HTTPS. See [authentication deployment details](authentication.md#google-and-resend).
+- Set `NEXT_PUBLIC_API_URL` to the browser-accessible API origin plus `/api/v1`. This is a frontend build argument; rebuild the image when changing it. `NOTEESTA_ENABLE_WORKSPACE` is passed at runtime by Compose.
+- Set `NOTEESTA_SITE_URL` before building to your public website origin. Its default is `https://noteesta.com`; it drives canonical metadata, robots, sitemap, and LLM guides. For Vercel, use `apps/web` as the project’s Root Directory.
+- Replace the example storage credentials and configure persistent storage, database backups, and an API ingress appropriate to your deployment. The local Compose API port binds to loopback.
+
+Google sign-in is optional; configure the OAuth credentials and exact callback URL in the [authentication guide](authentication.md). Local email previews are for development only.
+
+## Diagnostics
+
+```bash
+curl http://localhost:8000/api/v1/healthz
+```
+
+Inspect the JSON `status` and individual `dependencies` for MongoDB, object storage, and Celery connectivity. A `failing` health response currently still uses HTTP 200, so an HTTP-only check is insufficient. Model availability is reported separately through authenticated `GET /api/v1/models`.
+
+Use the API documentation at `http://localhost:8000/docs`. If a Pill stays queued, check the worker and Redis; processing can also fail on MongoDB, object storage, parsing, or model access. API and worker logs identify the failing stage.
+
+## Development checks
+
+```bash
+cd apps/web
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+
+cd ../api
+uv run ruff check .
+uv run black --check .
+uv run pytest
+```
+
+Black formats backend Python files with `cd apps/api && uv run black .`; Ruff remains the lint checker.
+
+If Ruff, Black, or pytest is unavailable (for example, `Failed to spawn: ruff`), run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
+
+Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. From `apps/web/`, `pnpm verify` runs all four frontend checks above. Use `pnpm format` or `pnpm format:check` there to format or check frontend files.
+
+To verify API packaging, run `cd apps/api && uv build --wheel`. The wheel includes `src/`, `workers/`, the `main.py` entrypoint, and `evals/prompts/`.
+
+## Live generation evaluations
+
+The evals live under [`apps/api/evals`](../apps/api/evals) with Python providers and Python assertions. They load the same shared prompt files used by the backend and run serially because local multimodal models can consume substantial memory.
+
+Promptfoo's runner is a Node CLI, but it is not a frontend dependency or package script. Use its one-off pnpm runner with the backend's uv interpreter:
+
+```bash
+PROMPTFOO_PYTHON="$(cd apps/api && uv run python -c 'import sys; print(sys.executable)')" \
+  pnpm dlx promptfoo@0.123.1 eval -c apps/api/evals/sections.yaml --env-file apps/api/.env -j 1
+```
+
+Replace `sections.yaml` with `notes.yaml`, `materials.yaml`, `visuals.yaml`, or `chat.yaml` to run another required job. The Python provider uses the same structured adapters as production. It defaults to `OLLAMA_MODEL`; set `EVAL_PROVIDER`, `EVAL_MODEL`, and the corresponding `EVAL_*` key for a hosted preset. Qwen reasoning is disabled. The [comparison guide](../apps/api/evals/README.md) generates matrices against the local baseline without exporting account keys.
+
+The materials suite checks the MCQ target for concise notes (two questions) and fuller notes (five distinct questions), including source evidence for each answer.
+
+Run all suites sequentially:
+
+```bash
+for config in sections notes materials visuals chat; do
+  PROMPTFOO_PYTHON="$(cd apps/api && uv run python -c 'import sys; print(sys.executable)')" \
+    pnpm dlx promptfoo@0.123.1 eval -c "apps/api/evals/${config}.yaml" --env-file apps/api/.env -j 1 || exit 1
+done
+```

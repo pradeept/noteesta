@@ -1,192 +1,341 @@
-# Noteesta
+<div align="center">
+  <img src="apps/web/src/app/icon.svg" alt="Noteesta logo" width="64" height="64" />
+  <h1>Noteesta</h1>
+  <p><strong>Make sense of what you study.</strong></p>
+  <p>A self-hosted study workspace that turns your materials into notes, visuals, and practice.<br />Run with local Ollama or bring your own API keys.</p>
+  <p>
+    <a href="https://noteesta.com">Website</a> ·
+    <a href="#docker">Docker Compose</a> ·
+    <a href="#local-setup">Local development</a> ·
+    <a href="#documentation">Documentation</a> ·
+    <a href="apps/web/content/changelog.md">Changelog</a> ·
+    <a href="https://github.com/pradeept/noteesta/issues">Issues</a>
+  </p>
+</div>
 
-Noteesta turns recordings, documents, images, video, and YouTube captions into a source-grounded Study Pill. Each Pill contains readable notes, optional practice materials, controlled visual assets, optional interactive 3D models, portable Markdown export, and chat that stays inside the selected sources.
+<a href="https://noteesta.com">
+  <img src="apps/web/public/media/noteesta-intro-poster.jpg" alt="Noteesta Study Pill with source-linked photosynthesis notes and study activities" width="100%" />
+</a>
 
-Workspace notes support in-place rich-text editing, highlighting, autosave, and version history. The toolbar adapts to the document width; on small screens, selecting text opens formatting controls. Preview and restore older notes from Version history. See [note editing](docs/note-editing.md) for saving behavior and API details.
+## What is Noteesta?
 
-Recent changes are recorded in the [changelog](apps/web/content/changelog.md), including authentication, in-place note editing, and bring your own key (BYOK) support. Edit that Markdown file with new entries at the top under `Unreleased`, then move them to a dated heading when released. Rebuilding and deploying the web app updates the collapsed Changelog on the landing page; no component changes are needed.
+A lesson can be spread across a recording, slides, handwritten notes, and a video. Noteesta brings those sources into a **Study Pill**: a structured explanation you can read, check against its sources, edit, and revisit when studying.
 
-The implemented vertical slice follows the architecture in [`docs/system-architecture.md`](docs/system-architecture.md). The UI takes its layout and color direction from [`docs/prototypes/grove.html`](docs/prototypes/grove.html).
+Self-host the workspace for your own materials, or [explore the interactive sample](https://noteesta.com/app) without an account. The public sample uses bundled content; uploads and preparation are simulated.
 
-[`apps/web/`](apps/web/) contains the Next.js frontend. [`apps/api/`](apps/api/) contains FastAPI, Celery workers, and evaluations. The API uses domain modules under `apps/api/src/`: `pills/`, `collections/`, `library/`, `models/`, and `health/` each contain their router and schemas. Shared schemas live in `common/schemas/`; processing services remain in `services/`. See the [backend guide](docs/backend.md) for the file layout, API routes, and storage conventions.
+## Features
 
-## Toolchain
+| Feature                   | What you can do                                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Source-linked notes**   | Combine documents, images, audio, video, and accessible YouTube captions into notes with references and excerpts. |
+| **In-place editing**      | Format and highlight notes, save automatically, and preview or restore earlier versions.                          |
+| **Practice**              | Choose flashcards, multiple-choice and true-or-false questions, and a study roadmap.                              |
+| **Visual learning**       | Explore flow visuals and optional interactive 3D concept models.                                                  |
+| **Local models and BYOK** | Generate with Ollama or personal keys for OpenAI, Anthropic, Gemini, Hugging Face, DeepSeek, and Z.ai.            |
+| **Private workspaces**    | Sign in with email/password or Google; keep each account’s Pills, collections, and sources separate.              |
+| **Chat and export**       | Ask questions within a Pill’s sources and download Markdown notes with PNG visuals.                               |
 
-- Frontend: Next.js, React, Tailwind CSS, and Phosphor icons, managed only with **pnpm**.
-- Backend: `fastapi[standard]`, Pydantic, Celery, MongoDB, Redis, and SeaweedFS S3-compatible storage, managed only with **uv**.
-- Study Pill generation: personal API keys for OpenAI, Anthropic, Google Gemini, Hugging Face Inference Providers, DeepSeek, and Z.ai/GLM, alongside local Ollama. Settings includes current flagship, balanced, and faster presets. Ollama supplies the separate embedding model for source search.
-- Optional 3D generation: the Pill’s resolved generation model prepares a cited spatial brief and generates bounded Three.js code. The scene is stored in MongoDB and rendered in a sandboxed viewer.
-- Parsing: Docling for documents and images, faster-whisper `small` for recordings, and yt-dlp for accessible YouTube captions.
-- LLM evaluation: Promptfoo suites for section extraction, note synthesis, optional materials, visual specifications, and grounded chat. The providers and assertions are Python files in the backend.
+## Getting started
 
-## Local setup
+Choose [Docker Compose](#docker) to run the application in containers, or [local development](#local-setup) to work on the frontend and backend with live reload. Both paths use the preparation below.
 
-1. Create separate environment files for the frontend and backend. Set the exact model tag returned by `ollama list` in the backend file:
+### Prerequisites
 
-   ```bash
-   cp apps/web/.env.example apps/web/.env
-   cp apps/api/.env.example apps/api/.env
-   ollama list
-   ```
+- **Docker with Compose** for the full stack or just Redis and object storage.
+- **MongoDB Atlas** with a database user, network access configured for your API and worker, and an [Atlas Vector Search index](docs/self-hosting.md#atlas-vector-search). MongoDB is not included in Compose. A plain local MongoDB instance does not provide the vector-search setup used by grounded chat.
+- **[Ollama](https://ollama.com/download)** for embeddings with every generation provider. Local generation also needs the configured generation model.
+- **Git and OpenSSL** for cloning and generating configuration secrets.
+- For local development: **Node.js 24**, **pnpm 11.8.0**, **Python 3.11+**, and **[uv](https://docs.astral.sh/uv/getting-started/installation/)**. The Docker images use Node.js 24 and Python 3.12; host Node.js, pnpm, Python, and uv are not needed for the Compose path.
 
-2. Install the frontend with pnpm from its app directory. Its package manifest, lockfile, and tool settings live in `apps/web/`:
-
-   ```bash
-   cd apps/web
-   pnpm install
-   cd ../..
-   ```
-
-3. Install the backend with uv. The project includes Docling, faster-whisper, and yt-dlp because source ingestion supports documents, recordings, and accessible YouTube captions:
-
-   ```bash
-   cd apps/api
-   uv sync --extra dev
-   cd ../..
-   ```
-
-4. With the MongoDB Atlas URI set in `apps/api/.env`, start Redis and SeaweedFS:
-
-   ```bash
-   docker compose --env-file apps/api/.env up -d redis seaweedfs
-   ```
-
-5. Run each process in its own terminal:
-
-   ```bash
-   cd apps/web && pnpm dev
-   ```
-
-   ```bash
-   cd apps/api && uv run fastapi dev main.py
-   ```
-
-   ```bash
-   cd apps/api && uv run celery -A workers.celery_app:celery_app worker --loglevel=INFO --pool=solo
-   ```
-
-The app is at `http://localhost:3000`, the API docs are at `http://localhost:8000/docs`, and the SeaweedFS S3 endpoint is at `http://localhost:8333`. This setup does not expose an object-storage console; the application creates its configured bucket automatically.
-
-Start Ollama with the configured generation and embedding models available. Every generation provider requires Ollama embeddings. A local generation model is needed only for Ollama generation or missing-key fallback. `GET http://localhost:8000/api/v1/healthz` reports MongoDB, object-storage, and Celery worker connectivity. Inspect its JSON `status` and `dependencies`: a `failing` response currently still uses HTTP 200. Model availability is reported separately by authenticated `GET /api/v1/models`.
-
-The public homepage at `/` explains Noteesta, and `/app` offers an interactive photosynthesis demo: simulated uploads, selectable study materials, short note chapters, visuals, flashcards, quizzes, and a 3D chloroplast schematic. Visitors can skip directly to the sample. All content is preset, with no real uploads, backend API calls, or saved progress. `/llm` is a Markdown product guide for people and agents. To use the development workspace locally, set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; its dashboard is at `/workspace`, and each live Study Pill opens at `/pills/<id>`. Start signup at `/register`, then open the verification link delivered by the configured email adapter and choose your password. Google accounts using third-party email addresses also require a confirmation email before their first verified sign-in. Email/password and Google sign-in protect the workspace; the public example stays available without signing in. See the [authentication guide](docs/authentication.md) for Google, Resend, session, and caching setup. A ready Pill can be regenerated from its footer to refresh practice questions; this processes its sources again.
-
-Open **Settings** from the account menu at `/settings` to add personal provider keys and save an account-wide default model. The workspace Generation model menu overrides that default for a new Pill. Each Pill retains its requested model for retries and grounded chat; its effective model is recorded separately when generation falls back to Ollama. New Pills created from other views use the account default.
-
-Keys are encrypted in MongoDB and never returned in full. Configure one persistent `PROVIDER_KEYS_ENCRYPTION_KEY` on both API and workers before saving keys. Generate it once with `uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'` from `apps/api`, then store it in `apps/api/.env` (or your deployment secret manager). Back up this key separately from the database. Replacing or losing it makes existing saved provider credentials unreadable; restore it or replace the affected personal keys in Settings. Missing encryption configuration disables hosted-key operations but leaves Ollama usable. Never expose the encryption key through a `NEXT_PUBLIC_*` variable.
-
-Hosted generation credentials are managed exclusively through Settings. A missing personal key falls back to the configured Ollama generation model. Invalid keys, access restrictions, quota errors, provider outages and undecryptable credentials produce explicit errors rather than switching models. In-flight operations may finish using the credential they already resolved; replacement and deletion affect subsequent operations. `GET /api/v1/models` reports account-specific availability. Keep Ollama’s `nomic-embed-text` available for embeddings; hosted generation does not require the local generation model to be installed.
-
-Hosted open models work through their inference APIs; Hugging Face tokens must allow Inference Providers calls. Z.ai uses a standard API key and standard endpoint, not a GLM Coding Plan subscription key. Provider availability and billing depend on the user’s account. Connection testing sends a small synthetic JSON request, never study sources, and may incur a small provider charge. Study generation and chat send selected source text to the chosen provider. See [preset comparison guidance](apps/api/evals/README.md) for model sources and live evaluation instructions.
-
-The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The API requires a Noteesta access bearer token for private resources, including model discovery. Production requires a stable `JWT_SECRET`, HTTPS, exact credentialed CORS origins, and Resend configuration. The local Compose setup binds the API port to loopback.
-
-### Docker
-
-Create the two environment files described above and configure MongoDB, authentication, and Ollama before starting Compose. Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env` to enable your workspace. Personal hosted-provider keys also require the persistent encryption key described above.
-
-Build and run the API, worker, frontend, Redis, and object storage from the repository root:
+### 1. Clone the repository
 
 ```bash
-docker compose --env-file apps/web/.env --env-file apps/api/.env up --build
+git clone https://github.com/pradeept/noteesta.git
+cd noteesta
 ```
 
-Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `apps/api/.env`. API and worker containers read `apps/api/.env`. The web image receives public frontend settings as build arguments and the workspace flag at runtime. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file. Ollama embeddings are required even when using a hosted generation provider. For Vercel, set the project's Root Directory to `apps/web`.
+Commands use Bash/zsh (or WSL on Windows) and start from the repository root unless a different directory is shown.
 
-`Dockerfile.api` copies `apps/api/main.py`, `src/`, `workers/`, and the shared prompt files, then starts `fastapi run main.py`. The worker uses the same image with the Celery command. To validate Compose without starting services, run `docker compose --env-file apps/web/.env --env-file apps/api/.env config --quiet`.
-
-## Environment
-
-The environment files are kept separate: [`apps/web/.env.example`](apps/web/.env.example) contains frontend variables, and [`apps/api/.env.example`](apps/api/.env.example) contains FastAPI, worker, storage, model, and Promptfoo variables. Next.js reads `apps/web/.env`; FastAPI reads `apps/api/.env` regardless of its current working directory.
-
-The backend values most likely to change are:
-
-- `OLLAMA_MODEL`: exact Qwen tag, such as `qwen3-vl:8b-instruct`.
-- `OLLAMA_EMBEDDING_MODEL`: embedding model, default `nomic-embed-text`.
-- `OLLAMA_BASE_URL`: host used by local API and Promptfoo processes.
-- `OLLAMA_DOCKER_BASE_URL`: host used by the API and worker containers.
-- `PROVIDER_KEYS_ENCRYPTION_KEY`: persistent Fernet key, shared by API and workers, required for personal hosted-provider credentials.
-- Personal provider keys are managed through Settings, rather than backend environment variables. Optional `EVAL_*` credentials are separate and used only for explicitly run live evaluations.
-- `JWT_SECRET`: stable secret of at least 32 characters; generate one with `openssl rand -hex 32`.
-- `WEB_URL` and `CORS_ORIGINS`: frontend origin, including the development port.
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: optional Google OAuth setup.
-- `EMAIL_ADAPTER`: `local` for private development previews in `apps/api/.local/emails/`, or `resend` with `RESEND_API_KEY` and `EMAIL_FROM` for real delivery. Local preview paths are relative to the API process working directory.
-
-Generated 3D JavaScript and its cited handoff are stored in the `pill_three_d` MongoDB collection under the Pill ID. The Pill document stores only the 3D status, description, and citations. The owner-scoped `GET /api/v1/pills/{pill_id}/three-d` route loads the code when the 3D tab opens. The public example uses a bundled scene and does not call OpenAI. ZIP export does not include interactive models.
-
-## Promptfoo evals
-
-The evals live under [`apps/api/evals`](apps/api/evals) with Python providers and Python assertions. They load the same shared prompt files used by the backend and run serially because local multimodal models can consume substantial memory.
-
-Promptfoo's runner is a Node CLI, but it is not a frontend dependency or package script. Use its one-off pnpm runner with the backend's uv interpreter:
+### 2. Configure the environment
 
 ```bash
-PROMPTFOO_PYTHON="$(cd apps/api && uv run python -c 'import sys; print(sys.executable)')" \
-  pnpm dlx promptfoo@0.123.1 eval -c apps/api/evals/sections.yaml --env-file apps/api/.env -j 1
+cp apps/web/.env.example apps/web/.env
+cp apps/api/.env.example apps/api/.env
 ```
 
-Replace `sections.yaml` with `notes.yaml`, `materials.yaml`, `visuals.yaml`, or `chat.yaml` to run another required job. The Python provider uses the same structured adapters as production. It defaults to `OLLAMA_MODEL`; set `EVAL_PROVIDER`, `EVAL_MODEL`, and the corresponding `EVAL_*` key for a hosted preset. Qwen reasoning is disabled. The [comparison guide](apps/api/evals/README.md) generates matrices against the local baseline without exporting account keys.
-
-The materials suite checks the MCQ target for concise notes (two questions) and fuller notes (five distinct questions), including source evidence for each answer.
-
-Run all suites sequentially:
+Generate two separate values and paste them into the backend environment file:
 
 ```bash
-for config in sections notes materials visuals chat; do
-  PROMPTFOO_PYTHON="$(cd apps/api && uv run python -c 'import sys; print(sys.executable)')" \
-    pnpm dlx promptfoo@0.123.1 eval -c "apps/api/evals/${config}.yaml" --env-file apps/api/.env -j 1 || exit 1
-done
+# JWT_SECRET
+openssl rand -hex 32
+
+# PROVIDER_KEYS_ENCRYPTION_KEY — required for BYOK
+openssl rand -base64 32 | tr '/+' '_-'
 ```
 
-## Verification
+In **`apps/web/.env`**, enable the workspace:
+
+```dotenv
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NOTEESTA_ENABLE_WORKSPACE=true
+NOTEESTA_SITE_URL=http://localhost:3000
+```
+
+In **`apps/api/.env`**, replace these values; keep the remaining example defaults for a local setup:
+
+```dotenv
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/?retryWrites=true&w=majority
+JWT_SECRET=<paste-the-generated-JWT-secret>
+PROVIDER_KEYS_ENCRYPTION_KEY=<paste-the-generated-encryption-key>
+WEB_URL=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000
+EMAIL_ADAPTER=local
+```
+
+Use your Atlas connection string and URL-encode special characters in its username/password. Keep the two secrets stable: replacing the JWT secret invalidates sessions; losing the encryption key makes existing saved provider keys unreadable. See [environment settings](#environment) and the [self-hosting guide](docs/self-hosting.md) for details.
+
+### 3. Prepare Ollama and MongoDB
+
+With Ollama running, pull the embedding model and, if using local generation, the default generation model:
+
+```bash
+ollama pull nomic-embed-text
+ollama pull qwen3-vl:8b-instruct
+ollama list
+```
+
+Set `OLLAMA_MODEL` in `apps/api/.env` to the exact installed generation-model tag. If you intend to use only BYOK, you can skip the local generation-model download; add a provider key and choose its model in Settings before creating your first Pill. **Ollama embeddings are still required.**
+
+Create the [Atlas Vector Search index](docs/self-hosting.md#atlas-vector-search) on `noteesta.chunks` and wait for it to be ready before using grounded chat.
+
+## Docker
+
+**Runs:** frontend, API, Celery worker, Redis, and SeaweedFS object storage. **Connects separately to:** your MongoDB deployment and host Ollama.
+
+Complete [Getting started](#getting-started) first. Keep these backend settings for host Ollama:
+
+```dotenv
+OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434
+```
+
+Ollama must listen on an address reachable from Docker. For a manually started Ollama server, use this in a separate terminal:
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+If Ollama already runs as an app or service, configure its bind address and restart that instance instead of starting a second server. See [Ollama’s platform-specific instructions](https://docs.ollama.com/faq#how-do-i-configure-ollama-server). Keep this endpoint reachable only by trusted clients.
+
+Build and start Noteesta:
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --build
+```
+
+Open **[localhost:3000](http://localhost:3000)**. To create your first account, follow [Create an account](#create-an-account).
+
+Useful commands, from the repository root:
+
+```bash
+# Check services and follow application logs
+docker compose --env-file apps/web/.env --env-file apps/api/.env ps
+docker compose --env-file apps/web/.env --env-file apps/api/.env logs -f api worker
+
+# Validate configuration without starting services
+docker compose --env-file apps/web/.env --env-file apps/api/.env config --quiet
+
+# Stop the stack, keeping the object-storage volume
+docker compose --env-file apps/web/.env --env-file apps/api/.env down
+```
+
+Compose configures container-to-container Redis and storage URLs automatically. Do not change those to `localhost`. The first build and first document/transcription job can take longer while dependencies and model weights download.
+
+This is a local self-hosting configuration. For a public deployment, follow the [deployment settings](docs/self-hosting.md#public-deployments).
+
+## Local setup (development)
+
+Complete [Getting started](#getting-started), then install dependencies. Use **pnpm** for the frontend and **uv** for Python.
 
 ```bash
 cd apps/web
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-
+corepack enable
+pnpm install --frozen-lockfile
 cd ../api
+uv sync --extra dev
+cd ../..
+```
+
+Start Redis and SeaweedFS in Docker, leaving the app processes on your host:
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d redis seaweedfs
+```
+
+The backend example defaults already point to host-accessible Redis, storage, and Ollama endpoints. Keep Ollama running, then open **three terminals**, each starting at the repository root:
+
+| Terminal | Process                                            |
+| -------- | -------------------------------------------------- |
+| 1        | Next.js frontend with live reload                  |
+| 2        | FastAPI with live reload                           |
+| 3        | Celery worker for source processing and generation |
+
+```bash
+# Terminal 1
+cd apps/web
+pnpm dev
+```
+
+```bash
+# Terminal 2
+cd apps/api
+uv run fastapi dev main.py
+```
+
+```bash
+# Terminal 3 — solo pool also works for local development on macOS/Windows
+cd apps/api
+uv run celery -A workers.celery_app:celery_app worker --loglevel=INFO --pool=solo
+```
+
+Open **[localhost:3000](http://localhost:3000)** and [create an account](#create-an-account). Restart the API and worker after changing backend environment values.
+
+### Local endpoints
+
+| Service                        | Address                                                               |
+| ------------------------------ | --------------------------------------------------------------------- |
+| Homepage                       | [localhost:3000](http://localhost:3000)                               |
+| Your workspace                 | [localhost:3000/workspace](http://localhost:3000/workspace)           |
+| Interactive sample             | [localhost:3000/app](http://localhost:3000/app)                       |
+| API documentation              | [localhost:8000/docs](http://localhost:8000/docs)                     |
+| Dependency health              | [localhost:8000/api/v1/healthz](http://localhost:8000/api/v1/healthz) |
+| S3-compatible storage endpoint | `http://localhost:8333` — API endpoint, not a web console             |
+
+Use `localhost` consistently; changing to `127.0.0.1` also requires matching frontend origin, CORS, and authentication settings. If port 3000 is busy, free it before starting the frontend or update all origin settings together.
+
+## Create an account
+
+1. Open [localhost:3000/register](http://localhost:3000/register) and enter your name and email.
+2. With `EMAIL_ADAPTER=local`, find the verification URL in the generated email JSON:
+   - **Local development:** `apps/api/.local/emails/`.
+   - **Docker Compose:** read the preview inside the API container:
+
+   ```bash
+   docker compose --env-file apps/web/.env --env-file apps/api/.env exec api sh -c 'cat .local/emails/*.json'
+   ```
+
+3. Open the verification URL, choose your password, and sign in. The workspace is at `/workspace`.
+
+The local adapter writes previews instead of sending email. For Google sign-in or real email delivery through Resend, see the [authentication guide](docs/authentication.md).
+
+## Environment
+
+There is no shared root `.env` file. Copy and edit both app templates:
+
+| Template                                                           | Used by                                                              |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| [`apps/web/.env.example`](apps/web/.env.example) → `apps/web/.env` | Next.js; Compose frontend build arguments and runtime workspace flag |
+| [`apps/api/.env.example`](apps/api/.env.example) → `apps/api/.env` | FastAPI, Celery, storage, generation, and optional evaluations       |
+
+| Setting                                  | Purpose                                                                                        |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `NOTEESTA_ENABLE_WORKSPACE`              | Set to `true` for your workspace. The example defaults to the public sample only.              |
+| `NEXT_PUBLIC_API_URL`                    | Browser-facing API URL; `http://localhost:8000/api/v1` locally. Baked into the frontend build. |
+| `NOTEESTA_SITE_URL`                      | Website origin for canonical metadata, sitemap, and LLM guides. Set before building.           |
+| `MONGODB_URI`                            | Connection string reachable by both API and worker; Compose does not start MongoDB.            |
+| `JWT_SECRET`                             | Stable authentication secret shared across API processes.                                      |
+| `PROVIDER_KEYS_ENCRYPTION_KEY`           | One persistent Fernet key shared by API and workers; required for BYOK.                        |
+| `WEB_URL`, `CORS_ORIGINS`                | Exact frontend origin, including scheme and port.                                              |
+| `OLLAMA_BASE_URL`                        | Ollama endpoint when API/worker run on the host.                                               |
+| `OLLAMA_DOCKER_BASE_URL`                 | Host Ollama endpoint used by API/worker containers.                                            |
+| `OLLAMA_MODEL`, `OLLAMA_EMBEDDING_MODEL` | Generation model and separate embedding model.                                                 |
+| `EMAIL_ADAPTER`                          | `local` for development previews; `resend` for delivered email.                                |
+
+Full defaults, optional Google/Resend settings, and evaluation credentials are documented in the templates. For storage, encryption-key recovery, deployment, and connectivity details, see [self-hosting](docs/self-hosting.md).
+
+## Models and BYOK
+
+Open **Settings** from your account menu to add a personal API key and select a default generation model. Noteesta supports **OpenAI, Anthropic, Google Gemini, Hugging Face Inference Providers, DeepSeek, and Z.ai**, alongside **Ollama**.
+
+The model menu overrides your default for a new Pill. Each Pill retains its chosen model for retries and chat. Personal keys are encrypted in MongoDB and are never returned in full. Source text goes to the selected generation provider; provider usage is billed to your account.
+
+Missing personal keys fall back to the configured Ollama generation model. Invalid keys, quota errors, provider outages, and unreadable stored credentials return errors instead of silently switching providers. Keep Ollama’s embedding model available with every provider. See [provider configuration](docs/self-hosting.md#provider-keys-and-model-selection) for details.
+
+## Documentation
+
+| Guide                                         | Covers                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------- |
+| [Self-hosting](docs/self-hosting.md)          | MongoDB vector index, storage, model settings, deployment, and diagnostics |
+| [Architecture](docs/system-architecture.md)   | Services, processing pipeline, data ownership, and current boundaries      |
+| [Backend](docs/backend.md)                    | Python layout, API routes, and packaging                                   |
+| [Authentication](docs/authentication.md)      | Email verification, Google, Resend, sessions, and local setup              |
+| [Note editing](docs/note-editing.md)          | Autosave, formatting, citations, and version history                       |
+| [Model evaluations](apps/api/evals/README.md) | Live preset comparisons and evaluation credentials                         |
+| [Documentation index](docs/README.md)         | Design diagrams and additional project references                          |
+
+### Repository layout
+
+```text
+apps/web/        Next.js frontend, public site, and workspace
+apps/api/        FastAPI service, Celery workers, and model evaluations
+docs/            Setup, architecture, and product guides
+compose.yaml     Local self-hosting services
+```
+
+## Contributing
+
+Bug reports, documentation fixes, and focused pull requests are welcome.
+
+1. [Open an issue](https://github.com/pradeept/noteesta/issues) with reproduction steps, expected behavior, and relevant logs with credentials removed. For a larger change, discuss the approach first.
+2. Fork the repository, create a branch, and follow [local setup](#local-setup).
+3. Run the relevant [checks](#verification), update documentation for behavior changes, and open a pull request describing the change and how you verified it.
+
+### Verification
+
+Frontend, from `apps/web`:
+
+```bash
+pnpm verify
+pnpm format:check
+```
+
+Backend, from `apps/api`:
+
+```bash
+uv sync --extra dev
 uv run ruff check .
 uv run black --check .
 uv run pytest
 ```
 
-Black formats backend Python files with `cd apps/api && uv run black .`; Ruff remains the lint checker.
+`pnpm verify` runs lint, TypeScript, unit tests, and the production build. Backend tests mock external services; they do not verify live infrastructure or provider access. For browser checks, install Chromium with `pnpm exec playwright install chromium`, then run `pnpm test:e2e` from `apps/web`. Browser tests use a separate frontend on port 3100.
 
-If Ruff, Black, or pytest is unavailable (for example, `Failed to spawn: ruff`), run `uv sync --extra dev` in `apps/api/` to install the optional development tools, then rerun the check. Plain `uv sync` does not install this extra.
+Optional live generation evaluations and package-build checks are in the [self-hosting and development notes](docs/self-hosting.md#development-checks).
 
-Backend unit and route tests mock external services; running them does not verify live MongoDB, Redis, object storage, Ollama, or provider credentials. Promptfoo evaluations make real model calls and run separately. From `apps/web/`, `pnpm verify` runs all four frontend checks above. Use `pnpm format` or `pnpm format:check` there to format or check frontend files.
+## Changelog
 
-To verify API packaging, run `cd apps/api && uv build --wheel`. The wheel includes `src/`, `workers/`, the `main.py` entrypoint, and `evals/prompts/`.
+See [the changelog](apps/web/content/changelog.md) for authentication, in-place editing, BYOK, and other updates. This Markdown file also renders in the landing page’s collapsed Changelog.
+
+Add entries under `Unreleased`, then move them to a dated heading when released. Rebuild and deploy the web app to publish the updated notes; no component changes are required.
 
 ## Current limits
 
-New Pills accept file uploads and an optional YouTube URL. The source library lists attached files and links, supports original-file downloads and deletion, and preserves generated notes after an original is deleted. Reusing a library file in a new Pill is not implemented. Regeneration needs the original files to remain available.
+- YouTube sources need accessible English captions. Uploaded video is transcribed; visual frames and slides are not sampled.
+- The source library supports downloading and deleting originals. Reusing a library file in a new Pill is not implemented; regeneration needs the originals to remain available.
+- ZIP exports contain `notes.md`, practice materials, and PNG visuals. Original uploads and interactive 3D models are excluded.
+- The public sample has no real uploads, backend calls, or saved progress. Use your self-hosted workspace for your own materials.
 
-Uploaded audio and video are transcribed; video frames and slides are not currently sampled. YouTube ingestion fetches accessible English captions, including automatic captions, and fails when none are available. Export returns a ZIP containing `notes.md` with the generated study materials and an `assets/` directory for PNG visuals; original files and interactive 3D models are excluded.
+The [original hackathon plan](docs/plan.md) and [HTML prototypes](docs/prototypes/README.md) preserve proposed behavior; the implementation and current architecture guide describe what is available today.
 
-The [original hackathon plan](plan.md), [design diagrams](docs/diagrams.html), and [HTML prototypes](docs/prototypes/README.md) retain proposed behavior that may differ from the implementation. Use this README and the [current architecture guide](docs/system-architecture.md) for setup and implemented behavior.
+## Troubleshooting
 
-## Atlas Vector Search setup
+| Symptom                   | What to check                                                                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace is unavailable  | Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; restart the frontend or recreate the Compose web container.                         |
+| MongoDB fails in Docker   | Container `localhost` is not your host. Use a reachable Atlas connection string and allow the API/worker’s outbound address in Atlas.        |
+| Ollama connection refused | Check the installed models, bind address, and `OLLAMA_DOCKER_BASE_URL`; see [Ollama connectivity](docs/self-hosting.md#ollama-connectivity). |
+| Pill stays queued         | Confirm the Celery worker is running and can reach Redis, MongoDB, storage, and Ollama.                                                      |
+| No verification email     | The default `local` adapter writes JSON previews. Check the host folder or API container described [above](#create-an-account).              |
+| Chat cannot find sources  | Check the Atlas vector index name, readiness, 768 dimensions, and both filter fields.                                                        |
+| BYOK is unavailable       | Set the same persistent encryption key for API and worker, restart them, and add your personal key in Settings.                              |
 
-LangChain provides source chunking, Ollama embeddings, structured generation, and retrieval through MongoDB Atlas Vector Search. The API stores chunks in `noteesta.chunks`; Atlas filters each vector query by the top-level `user_id` and `pill_id` metadata fields.
-
-For Atlas, create the `noteesta` database and `chunks` collection, then add a Vector Search index named `vector_index` with this definition. The 768 dimensions correspond to the default `nomic-embed-text` configuration. If you change the embedding model or its output dimensions, update the index definition and regenerate affected Pills to rebuild their chunks.
-
-```json
-{
-  "fields": [
-    {
-      "type": "vector",
-      "path": "embedding",
-      "numDimensions": 768,
-      "similarity": "cosine"
-    },
-    { "type": "filter", "path": "user_id" },
-    { "type": "filter", "path": "pill_id" }
-  ]
-}
-```
-
+For project questions, [open an issue](https://github.com/pradeept/noteesta/issues) or email [contact@noteesta.com](mailto:contact@noteesta.com).

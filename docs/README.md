@@ -1,6 +1,7 @@
 # Noteesta design and architecture
 
 - [Setup, commands, and current limits](../README.md)
+- [Self-hosting, MongoDB vector index, and deployment settings](self-hosting.md)
 - [Backend domain layout, API routes, and verification](backend.md)
 - [Current system architecture](system-architecture.md)
 - [Current interactions and original design diagrams](use-cases.md)
@@ -12,8 +13,7 @@ All HTML views work directly from the filesystem in a current browser. Keep the 
 
 The three UI directions share sample content and behavior, with different layouts and visual treatments. They are review artifacts, not the production Next.js frontend.
 
-The SVG diagrams and Mermaid sources preserve the original proposed flows, including planned file reuse, authentication, video-frame sampling, and export storage. The architecture and interaction guides describe what the current implementation actually does. The original [hackathon plan](../plan.md) records product intent; it is not a feature-completion checklist.
-
+The SVG diagrams and Mermaid sources preserve the original proposed flows, including planned file reuse, authentication, video-frame sampling, and export storage. The architecture and interaction guides describe what the current implementation actually does. The original [hackathon plan](plan.md) records product intent; it is not a feature-completion checklist.
 
 - [Authentication and frontend data](authentication.md): account setup, Google/Resend configuration, token lifecycle, caching, and local reset.
 - [Note editing and history](note-editing.md): autosave, rich formatting, section references, version restoration, and API storage.
