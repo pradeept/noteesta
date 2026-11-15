@@ -284,6 +284,7 @@ test('public demo makes no API requests; private workspace redirects anonymous v
 }, testInfo) => {
   const api = await mockApi(page);
   await page.goto('/app');
+  await page.getByRole('button', { name: 'Jump to the sample' }).click();
   await expect(page.getByRole('heading', { name: 'Photosynthesis, made clear' })).toBeVisible();
   expect(api.calls).toHaveLength(0);
   await page.goto('/workspace');

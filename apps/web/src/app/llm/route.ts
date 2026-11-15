@@ -19,7 +19,7 @@ export function GET() {
 Read this page for product context. Open the sample Study Pill to inspect what visitors can see. Use the source repository for implementation details.
 
 - [Public landing page](${siteUrl}/): The purpose, student use case, current product, and future direction.
-- [Read-only Study Pill example](${siteUrl}/app): A complete photosynthesis note with sources, a flow visual, an interactive 3D chloroplast, flashcards, and practice questions. This page makes no API calls and accepts no uploads or saved input.
+- [Interactive Study Pill example](${siteUrl}/app): A simulated upload and preparation journey with selectable materials, short note chapters, source excerpts, an interactive flow visual, a 3D chloroplast, flashcards, and quizzes. Visitors can jump directly to the sample. It uses bundled content with no backend requests, real uploads, or saved input.
 - [Noteesta demo video](https://youtu.be/_2Bphk7JLCk): The founder's YouTube video, titled "Noteesta - Hacktoberfest 2026".
 - [Source repository](https://github.com/pradeept/noteesta): Implementation and setup details.
 
@@ -63,7 +63,7 @@ Flashcard: ${artifact?.flashcards[0]?.front ?? ''} Answer: ${artifact?.flashcard
 
 ## Limits and availability
 
-The public demo is read-only and uses bundled example data. It has no account, upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support requires accessible English captions. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
+The public demo is an interactive simulation using bundled example data. Upload and preparation are mocked; material choices and quiz answers last only for the current visit. It has no account, real upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support requires accessible English captions. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
 
 ## Origin
 
