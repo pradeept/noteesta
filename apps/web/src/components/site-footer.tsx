@@ -1,4 +1,8 @@
 import Link from 'next/link';
+import { ArrowUpRightIcon } from '@phosphor-icons/react/dist/ssr/ArrowUpRight';
+import { GithubMark } from '@/components/icons/github-mark';
+import { XLogoIcon } from '@phosphor-icons/react/dist/ssr/XLogo';
+import { ChangelogLink } from '@/components/changelog-link';
 
 export function SiteFooter() {
   return (
@@ -10,7 +14,7 @@ export function SiteFooter() {
           </span>
           <span>noteesta</span>
         </Link>
-        <p>Thoughtful tools for learning, starting with Study Pills.</p>
+        <p>A self-hosted workspace for making sense of what you study.</p>
       </div>
 
       <div className="marketing-footer-column">
@@ -20,16 +24,27 @@ export function SiteFooter() {
 
       <nav className="marketing-footer-column" aria-label="Footer links">
         <span className="marketing-footer-label">Follow & explore</span>
-        <a href="https://x.com/0x0btoo" target="_blank" rel="noopener noreferrer">
-          X · @0x0btoo <span aria-hidden="true">↗</span>
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
-        <a href="https://github.com/pradeept/noteesta" target="_blank" rel="noopener noreferrer">
-          GitHub <span aria-hidden="true">↗</span>
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
+        <div className="marketing-footer-socials">
+          <a href="https://x.com/0x0btoo" target="_blank" rel="noopener noreferrer">
+            <XLogoIcon size={17} aria-hidden="true" />
+            <span className="sr-only">X · </span>@0x0btoo
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+          <a
+            className="marketing-icon-link"
+            href="https://github.com/pradeept/noteesta"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="GitHub (opens in a new tab)"
+          >
+            <GithubMark size={21} />
+            <span className="sr-only">GitHub (opens in a new tab)</span>
+          </a>
+        </div>
+        <a href="https://github.com/pradeept/noteesta#local-setup">Setup guide</a>
+        <ChangelogLink />
         <a href="/llm" type="text/markdown">
-          If you’re an LLM, start here <span aria-hidden="true">↗</span>
+          If you’re an LLM, start here <ArrowUpRightIcon size={14} aria-hidden="true" />
         </a>
       </nav>
     </footer>

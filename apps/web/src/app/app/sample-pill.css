@@ -1024,6 +1024,7 @@
   margin-top: 6px;
 }
 .sample-source-dialog {
+  margin: auto;
   color: #173222;
   background: #fff;
   border: 1px solid #d7e2d7;

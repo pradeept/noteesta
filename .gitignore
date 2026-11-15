@@ -24,3 +24,5 @@ apps/web/public/three-artifact-runtime.js
 .local/
 playwright-report/
 test-results/
+
+tools/

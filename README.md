@@ -4,6 +4,8 @@ Noteesta turns recordings, documents, images, video, and YouTube captions into a
 
 Workspace notes support in-place rich-text editing, highlighting, autosave, and version history. The toolbar adapts to the document width; on small screens, selecting text opens formatting controls. Preview and restore older notes from Version history. See [note editing](docs/note-editing.md) for saving behavior and API details.
 
+Recent changes are recorded in the [changelog](apps/web/content/changelog.md), including authentication, in-place note editing, and bring your own key (BYOK) support. Edit that Markdown file with new entries at the top under `Unreleased`, then move them to a dated heading when released. Rebuilding and deploying the web app updates the collapsed Changelog on the landing page; no component changes are needed.
+
 The implemented vertical slice follows the architecture in [`docs/system-architecture.md`](docs/system-architecture.md). The UI takes its layout and color direction from [`docs/prototypes/grove.html`](docs/prototypes/grove.html).
 
 [`apps/web/`](apps/web/) contains the Next.js frontend. [`apps/api/`](apps/api/) contains FastAPI, Celery workers, and evaluations. The API uses domain modules under `apps/api/src/`: `pills/`, `collections/`, `library/`, `models/`, and `health/` each contain their router and schemas. Shared schemas live in `common/schemas/`; processing services remain in `services/`. See the [backend guide](docs/backend.md) for the file layout, API routes, and storage conventions.
@@ -79,7 +81,17 @@ Hosted open models work through their inference APIs; Hugging Face tokens must a
 
 The official public origin is `https://noteesta.com`. `NOTEESTA_SITE_URL` defaults to that origin for canonical metadata, robots.txt, sitemap.xml, and llms.txt. Set a different origin before building a preview deployment. The API requires a Noteesta access bearer token for private resources, including model discovery. Production requires a stable `JWT_SECRET`, HTTPS, exact credentialed CORS origins, and Resend configuration. The local Compose setup binds the API port to loopback.
 
-You can also build the API, worker, and frontend with `docker compose --env-file apps/web/.env --env-file apps/api/.env up --build`. Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `apps/api/.env`. API and worker containers read `apps/api/.env`. The web image receives public frontend settings as build arguments and the workspace flag at runtime. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file. For Vercel, set the project's Root Directory to `apps/web`.
+### Docker
+
+Create the two environment files described above and configure MongoDB, authentication, and Ollama before starting Compose. Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env` to enable your workspace. Personal hosted-provider keys also require the persistent encryption key described above.
+
+Build and run the API, worker, frontend, Redis, and object storage from the repository root:
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env up --build
+```
+
+Compose does not start MongoDB; API and worker connect to the `MONGODB_URI` supplied by `apps/api/.env`. API and worker containers read `apps/api/.env`. The web image receives public frontend settings as build arguments and the workspace flag at runtime. Ollama remains on the host by default and the containers use `OLLAMA_DOCKER_BASE_URL` from the backend environment file. Ollama embeddings are required even when using a hosted generation provider. For Vercel, set the project's Root Directory to `apps/web`.
 
 `Dockerfile.api` copies `apps/api/main.py`, `src/`, `workers/`, and the shared prompt files, then starts `fastapi run main.py`. The worker uses the same image with the Celery command. To validate Compose without starting services, run `docker compose --env-file apps/web/.env --env-file apps/api/.env config --quiet`.
 

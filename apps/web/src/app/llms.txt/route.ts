@@ -3,13 +3,15 @@ import { siteUrl } from '@/lib/site-url';
 export function GET() {
   const markdown = `# Noteesta
 
-> A family of thoughtful learning tools, beginning with source-linked Study Pills.
+> A self-hosted, open-source study workspace. Turn your materials into source-linked Study Pills with local Ollama or your own provider keys.
 
 ## Start here
 
 - [Noteesta product and direction](${siteUrl}/llm): Full Markdown overview, current capabilities, plans, and limits.
-- [Public website](${siteUrl}/): Student use case and product story.
-- [Read-only Study Pill example](${siteUrl}/app): Photosynthesis note, visual, references, and practice.
+- [Public website](${siteUrl}/): Product film, current capabilities, and a collapsed changelog.
+- [Interactive Study Pill example](${siteUrl}/app): Simulated uploads, photosynthesis notes, visuals, source references, 3D, and practice. No account required.
+- [Source repository](https://github.com/pradeept/noteesta): Implementation and contribution history.
+- [Local setup](https://github.com/pradeept/noteesta#local-setup) and [Docker setup](https://github.com/pradeept/noteesta#docker): Run your own workspace. Ollama embeddings are required with every generation provider.
 `;
   return new Response(markdown, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
 }

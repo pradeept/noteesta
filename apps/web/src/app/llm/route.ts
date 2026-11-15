@@ -12,16 +12,17 @@ export function GET() {
       .join('\n\n') ?? '';
   const markdown = `# Noteesta
 
-> Noteesta is building thoughtful tools for learning and studying. Its first product, Study Pills, turns a student's selected learning materials into readable notes with source references, visuals, and optional revision material.
+> Noteesta is an open-source, self-hosted study workspace. Study Pills turn a student's selected learning materials into editable notes with source references, visuals, and optional revision material. Generate locally with Ollama or bring your own provider keys.
 
 ## If you are an LLM, move through Noteesta
 
 Read this page for product context. Open the sample Study Pill to inspect what visitors can see. Use the source repository for implementation details.
 
-- [Public landing page](${siteUrl}/): The purpose, student use case, current product, and future direction.
+- [Public landing page](${siteUrl}/): Product film, current capabilities, setup links, and a collapsed changelog.
 - [Interactive Study Pill example](${siteUrl}/app): A simulated upload and preparation journey with selectable materials, short note chapters, source excerpts, an interactive flow visual, a 3D chloroplast, flashcards, and quizzes. Visitors can jump directly to the sample. It uses bundled content with no backend requests, real uploads, or saved input.
-- [Noteesta demo video](https://youtu.be/_2Bphk7JLCk): The founder's YouTube video, titled "Noteesta - Hacktoberfest 2026".
+- [Noteesta intro video](/media/noteesta-intro.mp4): A 43-second, music-only product reveal showing the interactive sample, also available on the homepage.
 - [Source repository](https://github.com/pradeept/noteesta): Implementation and setup details.
+- [Local setup](https://github.com/pradeept/noteesta#local-setup) and [Docker setup](https://github.com/pradeept/noteesta#docker): Deploy your own workspace with configured MongoDB, authentication, object storage, and Ollama. Compose does not start MongoDB. Enable the workspace with NOTEESTA_ENABLE_WORKSPACE=true.
 
 ## The student use case
 
@@ -31,9 +32,12 @@ A student may have a lecture recording, a PDF of slides, and photos of handwritt
 
 - Study Pills from supported recordings, documents, images, video, and YouTube links with accessible captions.
 - Structured notes with source references and controlled visuals such as flows.
+- In-place rich-text editing, highlighting, autosave, and version history with preview and restore.
+- Bring your own key (BYOK) for OpenAI, Anthropic, Google Gemini, Hugging Face Inference Providers, DeepSeek, and Z.ai, alongside Ollama. Personal keys are encrypted at rest in Settings. Choose an account default model or override it for a Pill. Ollama supplies embeddings with every provider.
+- Email/password and Google authentication, email verification, and private account-scoped workspaces.
 - Optional flashcards, multiple-choice questions, true-or-false questions, and a study roadmap.
 - Optional interactive 3D concept models using Three.js. The development workspace generates cited scenes when the material supports a spatial explanation; the public example includes a bundled chloroplast scene.
-- A source-scoped question feature and portable export in the development app. These are not connected to the public read-only demo.
+- A source-scoped question feature and portable export in the development app. These are not connected to the public interactive demo.
 
 ## Planned directions
 
