@@ -2,6 +2,8 @@
 
 Noteesta turns recordings, documents, images, video, and YouTube captions into a source-grounded Study Pill. Each Pill contains readable notes, optional practice materials, controlled visual assets, optional interactive 3D models, portable Markdown export, and chat that stays inside the selected sources.
 
+Workspace notes support in-place rich-text editing, highlighting, autosave, and version history. The toolbar adapts to the document width; on small screens, selecting text opens formatting controls. Preview and restore older notes from Version history. See [note editing](docs/note-editing.md) for saving behavior and API details.
+
 The implemented vertical slice follows the architecture in [`docs/system-architecture.md`](docs/system-architecture.md). The UI takes its layout and color direction from [`docs/prototypes/grove.html`](docs/prototypes/grove.html).
 
 [`apps/web/`](apps/web/) contains the Next.js frontend. [`apps/api/`](apps/api/) contains FastAPI, Celery workers, and evaluations. The API uses domain modules under `apps/api/src/`: `pills/`, `collections/`, `library/`, `models/`, and `health/` each contain their router and schemas. Shared schemas live in `common/schemas/`; processing services remain in `services/`. See the [backend guide](docs/backend.md) for the file layout, API routes, and storage conventions.

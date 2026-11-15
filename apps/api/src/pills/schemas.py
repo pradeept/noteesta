@@ -28,6 +28,7 @@ class StudyPill(ApiModel):
     effective_generation: GenerationSelection | None = None
     sources: list[Source] = Field(default_factory=list)
     artifact: StudyArtifact | None = None
+    notes_revision_id: str | None = None
     updated_at: datetime = Field(default_factory=utc_now)
     processing_duration_seconds: int | None = None
     error: str | None = None

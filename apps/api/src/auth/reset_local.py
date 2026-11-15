@@ -18,6 +18,7 @@ TABLES = (
     "collections",
     "chunks",
     "pill_three_d",
+    "pill_note_revisions",
     "users",
     "auth_sessions",
     "auth_email_tokens",

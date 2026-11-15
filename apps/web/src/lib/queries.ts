@@ -141,7 +141,7 @@ export function useWorkspaceMutations() {
     mutationFn: (id: string) => guarded(() => api.retryPill(id)),
     onSuccess: (pill) => {
       savePill(pill);
-      void invalidate('pills', 'three-d');
+      void invalidate('pills', 'three-d', 'notes', 'note-history');
     },
   });
   const move = useMutation({

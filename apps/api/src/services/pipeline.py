@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from typing import Any
+from uuid import uuid4
 
 from langchain_core.documents import Document
 
@@ -21,6 +22,7 @@ from src.common.schemas.schemas import (
 )
 from src.database import get_database
 from src.generation import resolve_generation
+from src.pills.notes import NotesRepository, generated_content
 from src.repository import (
     PillRepository,
     artifact_for_storage,
@@ -54,6 +56,8 @@ async def process_pill(pill_id: str) -> None:
         pill = await repository.get(pill_id)
         if pill is None:
             raise ValueError(f"Unknown Study Pill: {pill_id}")
+        notes_repository = NotesRepository(database)
+        previous_notes = await notes_repository.current(pill) if pill.artifact else None
         base_duration = pill.processing_duration_seconds or 0
         await repository.update(
             pill_id,
@@ -245,7 +249,7 @@ async def process_pill(pill_id: str) -> None:
                 data=visual_raw.get("data", []),
                 citations=_citations(visual_raw.get("evidence", []), source_lookup),
             )
-            asset_key = f"users/{pill.user_id}/pills/{pill.id}/assets/{visual.id}.png"
+            asset_key = f"users/{pill.user_id}/pills/{pill.id}/assets/{uuid4()}/{visual.id}.png"
             await storage.put_bytes(asset_key, render_visual(visual), "image/png")
             visual.asset_key = asset_key
             visual.asset_url = await storage.presigned_url(asset_key)
@@ -286,15 +290,23 @@ async def process_pill(pill_id: str) -> None:
             roadmap=_roadmap(materials_raw.get("roadmap", [])),
             three_d=three_d,
         )
-        await repository.update(
-            pill_id,
-            artifact=artifact_for_storage(artifact),
-            status="ready",
-            stage="Ready to study",
-            progress=100,
-            sources=sources_for_storage(pill.sources),
-            processing_duration_seconds=base_duration
-            + max(1, round(time.monotonic() - attempt_started)),
+        snapshot = notes_repository.snapshot(
+            pill, generated_content(artifact), previous_notes, "generated"
+        )
+        await notes_repository.commit(
+            pill,
+            snapshot,
+            pill.notes_revision_id,
+            status="processing",
+            changes={
+                "artifact": artifact_for_storage(artifact),
+                "status": "ready",
+                "stage": "Ready to study",
+                "progress": 100,
+                "sources": sources_for_storage(pill.sources),
+                "processing_duration_seconds": base_duration
+                + max(1, round(time.monotonic() - attempt_started)),
+            },
         )
     except Exception as error:
         logger.exception("Pill %s: generation failed: %s", pill_id, error)
@@ -302,8 +314,13 @@ async def process_pill(pill_id: str) -> None:
             try:
                 await repository.update(
                     pill_id,
-                    status="failed",
-                    stage="Generation stopped",
+                    status="ready" if pill and pill.artifact else "failed",
+                    stage=(
+                        "Previous notes preserved"
+                        if pill and pill.artifact
+                        else "Generation stopped"
+                    ),
+                    progress=100 if pill and pill.artifact else 0,
                     error=str(error),
                     processing_duration_seconds=base_duration
                     + max(1, round(time.monotonic() - attempt_started)),

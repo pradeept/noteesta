@@ -41,6 +41,7 @@ import { ReadingSettingsDialog, ThemePicker } from '@/components/appearance-cont
 import { VisualCanvas } from '@/components/flow-visual';
 import { SourceIcon } from '@/components/source-icon';
 import { StudyMaterials } from '@/components/study-materials';
+import { NotesSaveGuard, useNotesGuard } from '@/components/notes-save-guard';
 import { WikipediaFactCard } from '@/components/wikipedia-fact-card';
 import type {
   ChatAnswer,
@@ -52,8 +53,18 @@ import type {
 } from '@/lib/types';
 
 export function StudyShell({ initialPillId }: { initialPillId: string }) {
+  const { user } = useSession();
+  return (
+    <NotesSaveGuard key={user?.id}>
+      <StudyShellContent initialPillId={initialPillId} />
+    </NotesSaveGuard>
+  );
+}
+
+function StudyShellContent({ initialPillId }: { initialPillId: string }) {
   const router = useRouter();
   const { user } = useSession();
+  const { flushNotes } = useNotesGuard();
   const pillsQuery = usePills();
   const collectionsQuery = useCollections();
   const mutations = useWorkspaceMutations();
@@ -62,6 +73,17 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   const collections = collectionsQuery.data ?? [];
   const setCollections = useCachedSetter<Collection>(keys.collections(user?.id));
   const [activeId, setActiveId] = useState(initialPillId);
+  const [editedNotes, setEditedNotes] = useState<{
+    pillId: string;
+    outline: Array<{ id: string; title: string }>;
+    words: number;
+  }>();
+  const handleNotesOutline = useCallback(
+    (outline: Array<{ id: string; title: string }>, words: number) => {
+      setEditedNotes({ pillId: activeId, outline, words });
+    },
+    [activeId],
+  );
   const loadingLibrary = pillsQuery.isPending;
   const [createOpen, setCreateOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -87,9 +109,12 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   const libraryError =
     pillQuery.error?.message ?? pillsQuery.error?.message ?? collectionsQuery.error?.message ?? '';
   const activePill = pillQuery.data ?? pills.find((pill) => pill.id === activeId);
+  const outline =
+    editedNotes?.pillId === activeId ? editedNotes.outline : (activePill?.artifact?.sections ?? []);
   const notify = toast.success;
 
   async function handleCreate(input: CreatePillInput) {
+    await flushNotes();
     const pill = await mutations.create.mutateAsync(input);
     setPills((current) => [pill, ...current.filter((item) => item.id !== pill.id)]);
     setActiveId(pill.id);
@@ -101,6 +126,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   async function handleExport() {
     if (!activePill) return;
     try {
+      await flushNotes();
       const blob = activePill.isDemo
         ? demoMarkdown(activePill)
         : await mutations.exportPack.mutateAsync(activePill.id);
@@ -121,6 +147,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   async function handleRetry() {
     if (!activePill || activePill.isDemo) return;
     try {
+      await flushNotes();
       const updated = await mutations.retry.mutateAsync(activePill.id);
       setPills((current) => current.map((pill) => (pill.id === updated.id ? updated : pill)));
       notify('Generation queued again.');
@@ -189,9 +216,13 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
   }
 
   function selectPill(id: string) {
-    setActiveId(id);
-    setMobileOpen(false);
-    router.push(`/pills/${id}`);
+    void flushNotes()
+      .then(() => {
+        setActiveId(id);
+        setMobileOpen(false);
+        router.push(`/pills/${id}`);
+      })
+      .catch(() => toast.error('Save your notes before switching Study Pills.'));
   }
 
   if (!activePill && (loadingLibrary || pillQuery.isPending)) {
@@ -415,6 +446,11 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
             {libraryError}
           </div>
         ) : null}
+        {activePill.status === 'ready' && activePill.error ? (
+          <p className="connection-note" role="status">
+            Regeneration stopped: {activePill.error}. Your previous notes are still available.
+          </p>
+        ) : null}
         {activePill.status === 'queued' || activePill.status === 'processing' ? (
           <ProcessingView pill={activePill} />
         ) : activePill.status === 'failed' ? (
@@ -428,10 +464,12 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
                   {Math.max(
                     3,
                     Math.round(
-                      activePill.artifact.sections.reduce(
-                        (count, section) => count + section.markdown.split(/\s+/).length,
-                        0,
-                      ) / 210,
+                      (editedNotes?.pillId === activeId
+                        ? editedNotes.words
+                        : activePill.artifact.sections.reduce(
+                            (count, section) => count + section.markdown.split(/\s+/).length,
+                            0,
+                          )) / 210,
                     ),
                   )}{' '}
                   min read
@@ -475,6 +513,8 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
                 selectedMaterials={activePill.selectedMaterials}
                 onCitation={setCitation}
                 onVisual={setVisual}
+                onOutline={handleNotesOutline}
+                outline={outline}
               />
               <footer className="pill-footer">
                 <span>Ready to study</span>
@@ -509,7 +549,7 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
               aria-label="On this page"
             >
               <span>On this page</span>
-              {activePill.artifact.sections.map((section) => (
+              {outline.map((section) => (
                 <a key={section.id} href={`#${section.id}`}>
                   {section.title}
                 </a>
@@ -558,8 +598,9 @@ export function StudyShell({ initialPillId }: { initialPillId: string }) {
               Regenerate this Study Pill?
             </AlertDialog.Title>
             <AlertDialog.Description className="radix-dialog-description">
-              Noteesta will process the sources again and replace the generated notes and practice
-              questions. This can take a few minutes.
+              Noteesta will process the sources again and create a new notes version. Your note
+              history stays available; practice questions will be replaced. This can take a few
+              minutes.
             </AlertDialog.Description>
             <div className="dialog-actions">
               <AlertDialog.Cancel asChild>

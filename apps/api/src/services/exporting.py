@@ -1,11 +1,13 @@
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from src.common.schemas.schemas import VisualSpec
+from src.pills.notes import document_markdown
 from src.pills.schemas import StudyPill
 from src.storage import ObjectStorage
 
 
-async def build_export(pill: StudyPill, storage: ObjectStorage) -> bytes:
+async def build_export(pill: StudyPill, storage: ObjectStorage, notes: dict | None = None) -> bytes:
     """Bundle a Study Pill's Markdown and rendered assets into a portable ZIP file."""
     if not pill.artifact:
         raise ValueError("This Study Pill has no generated artifact")
@@ -13,16 +15,54 @@ async def build_export(pill: StudyPill, storage: ObjectStorage) -> bytes:
     markdown = [f"# {pill.title}", ""]
     if pill.description:
         markdown.extend([pill.description, ""])
-    markdown.extend([pill.artifact.summary, ""])
-    for section in pill.artifact.sections:
-        markdown.extend([f"## {section.title}", "", section.markdown, ""])
-        for citation in section.citations:
-            markdown.append(f"- Source: {citation.source_name}, {citation.locator}")
-        markdown.append("")
+    if notes and notes["document"]:
+        for block in notes["document"].get("content", []):
+            markdown.extend([document_markdown(block), ""])
+            for reference in block.get("attrs", {}).get("citationIds", []):
+                citation = notes["references"][reference]
+                markdown.append(f"- Source: {citation['sourceName']}, {citation['locator']}")
+            markdown.append("")
+    else:
+        generated = (
+            notes["generated"]
+            if notes
+            else {
+                "summary": pill.artifact.summary,
+                "sections": [
+                    section.model_dump(by_alias=True) for section in pill.artifact.sections
+                ],
+            }
+        )
+        markdown.extend([generated["summary"], ""])
+        for section in generated["sections"]:
+            markdown.extend([f"## {section['title']}", "", section["markdown"], ""])
+            citations = (
+                [notes["references"][ref] for ref in section.get("citationIds", [])]
+                if notes
+                else section["citations"]
+            )
+            for citation in citations:
+                markdown.append(f"- Source: {citation['sourceName']}, {citation['locator']}")
+            markdown.append("")
 
-    if pill.artifact.visuals:
+    visuals = (
+        [VisualSpec.model_validate(value) for value in notes["visuals"]]
+        if notes
+        else pill.artifact.visuals
+    )
+    if notes and notes["document"]:
+
+        def visual_ids(node):
+            result = {node["attrs"]["id"]} if node["type"] == "noteVisual" else set()
+            for child in node.get("content", []):
+                result.update(visual_ids(child))
+            return result
+
+        included = visual_ids(notes["document"])
+        visuals = [visual for visual in visuals if visual.id in included]
+    elif visuals:
         markdown.extend(["## Visuals", ""])
-        for visual in pill.artifact.visuals:
+        for visual in visuals:
             markdown.extend(
                 [
                     f"![{visual.description}](assets/{visual.id}.png)",
@@ -76,7 +116,7 @@ async def build_export(pill: StudyPill, storage: ObjectStorage) -> bytes:
     buffer = BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
         archive.writestr("notes.md", "\n".join(markdown).encode("utf-8"))
-        for visual in pill.artifact.visuals:
+        for visual in visuals:
             if visual.asset_key:
                 archive.writestr(
                     f"assets/{visual.id}.png",

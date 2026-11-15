@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, FlagPennantIcon } from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +10,11 @@ import { CitationButton } from '@/components/citation-button';
 import { FlowVisual } from '@/components/flow-visual';
 import { ThreeDMaterial } from '@/components/three-d-material';
 import type { Citation, MaterialKey, StudyArtifact, VisualSpec } from '@/lib/types';
+
+const NotesEditor = dynamic(
+  () => import('@/components/notes-editor').then((module) => module.NotesEditor),
+  { ssr: false, loading: () => <p role="status">Opening notes editor…</p> },
+);
 
 const tabLabels: Record<MaterialKey, string> = {
   notes: 'Notes',
@@ -26,6 +32,8 @@ export function StudyMaterials({
   selectedMaterials,
   onCitation,
   onVisual,
+  onOutline,
+  outline,
 }: {
   artifact: StudyArtifact;
   pillId: string;
@@ -33,6 +41,8 @@ export function StudyMaterials({
   selectedMaterials: MaterialKey[];
   onCitation: (citation: Citation) => void;
   onVisual: (visual: VisualSpec) => void;
+  onOutline: (outline: Array<{ id: string; title: string }>, words: number) => void;
+  outline: Array<{ id: string; title: string }>;
 }) {
   const reduce = useReducedMotion();
   const [active, setActive] = useState<MaterialKey>('notes');
@@ -67,15 +77,24 @@ export function StudyMaterials({
         ))}
       </nav>
 
+      <div hidden={active !== 'notes'}>
+        {isDemo ? (
+          <Notes artifact={artifact} onCitation={onCitation} onVisual={onVisual} />
+        ) : (
+          <NotesEditor
+            pillId={pillId}
+            onCitation={onCitation}
+            onVisual={onVisual}
+            onOutline={onOutline}
+          />
+        )}
+      </div>
       <motion.div
         key={active}
         initial={reduce ? false : { y: 6 }}
         animate={{ y: 0 }}
         transition={{ duration: reduce ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
       >
-        {active === 'notes' ? (
-          <Notes artifact={artifact} onCitation={onCitation} onVisual={onVisual} />
-        ) : null}
         {active === 'flashcards' ? (
           <Flashcards artifact={artifact} onCitation={onCitation} />
         ) : null}
@@ -84,6 +103,7 @@ export function StudyMaterials({
         {active === 'roadmap' ? (
           <Roadmap
             artifact={artifact}
+            sectionIds={outline.map((section) => section.id)}
             onOpen={(sectionId) => {
               setActive('notes');
               requestAnimationFrame(() => {
@@ -342,9 +362,11 @@ function TrueFalse({
 function Roadmap({
   artifact,
   onOpen,
+  sectionIds,
 }: {
   artifact: StudyArtifact;
   onOpen: (sectionId: string) => void;
+  sectionIds: string[];
 }) {
   if (!artifact.roadmap.length) return <EmptyMaterial label="roadmap" />;
   return (
@@ -366,8 +388,13 @@ function Roadmap({
               <strong>{item.title}</strong>
               <p>{item.description}</p>
             </div>
-            <button type="button" className="roadmap-open" onClick={() => onOpen(item.sectionId)}>
-              Open notes
+            <button
+              type="button"
+              className="roadmap-open"
+              disabled={!sectionIds.includes(item.sectionId)}
+              onClick={() => onOpen(item.sectionId)}
+            >
+              {sectionIds.includes(item.sectionId) ? 'Open notes' : 'Section removed from notes'}
             </button>
           </li>
         ))}
