@@ -4,11 +4,14 @@
 
 ### Added
 
+- Product-focused social preview images and structured data for search engines.
 - A music-only product film showing the interactive Study Pill sample.
 - A changelog on the landing page, maintained in Markdown.
 
 ### Changed
 
+- The website and search descriptions now position Noteesta as an open-source alternative to Turbo AI and Google NotebookLM.
+- Link previews use the current product message instead of the original sisters illustration.
 - The landing page now leads with self-hosting, GitHub, and local setup instructions.
 
 ## 2026-11-15

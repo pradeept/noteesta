@@ -2,7 +2,7 @@
   <img src="apps/web/src/app/icon.svg" alt="Noteesta logo" width="64" height="64" />
   <h1>Noteesta</h1>
   <p><strong>Make sense of what you study.</strong></p>
-  <p>A self-hosted study workspace that turns your materials into notes, visuals, and practice.<br />Run with local Ollama or bring your own API keys.</p>
+  <p>An open-source alternative to Turbo AI and Google NotebookLM.<br />Self-host your study workspace with local Ollama or bring your own API keys.</p>
   <p>
     <a href="https://noteesta.com">Website</a> ·
     <a href="#docker">Docker Compose</a> ·

@@ -12,7 +12,7 @@ export function GET() {
       .join('\n\n') ?? '';
   const markdown = `# Noteesta
 
-> Noteesta is an open-source, self-hosted study workspace. Study Pills turn a student's selected learning materials into editable notes with source references, visuals, and optional revision material. Generate locally with Ollama or bring your own provider keys.
+> Noteesta is an open-source alternative to Turbo AI and Google NotebookLM. Self-host a study workspace that turns selected learning materials into editable notes with source references, visuals, and optional revision material. Generate locally with Ollama or bring your own provider keys.
 
 ## If you are an LLM, move through Noteesta
 
@@ -69,9 +69,9 @@ Flashcard: ${artifact?.flashcards[0]?.front ?? ''} Answer: ${artifact?.flashcard
 
 The public demo is an interactive simulation using bundled example data. Upload and preparation are mocked; material choices and quiz answers last only for the current visit. It has no account, real upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support requires accessible English captions. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
 
-## Origin
+## Product direction
 
-Noteesta began as a study pal for the founder's two sisters. Study Pills are the first product in a planned family of learning tools.
+Noteesta is becoming an open-source alternative to Turbo AI and Google NotebookLM, with self-hosting, model choice, source-linked notes, and interactive study materials at its center. Study Pills are the first product in a planned family of learning tools.
 
 ## Contact and socials
 

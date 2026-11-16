@@ -1,22 +1,14 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteFooter } from '@/components/site-footer';
 import { SamplePillJourney } from '@/components/sample-pill-journey';
+import { publicPageMetadata } from '@/lib/seo';
 import './sample-pill.css';
 
-export const metadata: Metadata = {
-  title: 'Example Study Pill — Photosynthesis | Noteesta',
-  description:
-    'Try a simulated upload, choose your study materials, and explore cited photosynthesis notes, interactive visuals, a 3D chloroplast, and practice.',
-  alternates: { canonical: '/app', types: { 'text/markdown': '/llm' } },
-  openGraph: {
-    title: 'Explore a Noteesta Study Pill',
-    description:
-      'From sample sources to a Study Pill. Take the journey, then explore at your pace.',
-    type: 'website',
-    url: '/app',
-  },
-};
+export const metadata = publicPageMetadata(
+  'Photosynthesis Study Pill Demo | Noteesta',
+  'Explore cited photosynthesis notes, interactive visuals, a 3D chloroplast, flashcards, and quizzes. Try the Noteesta sample without an account.',
+  '/app',
+);
 
 export default function PublicDemo() {
   return (

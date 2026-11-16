@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRightIcon } from '@phosphor-icons/react/dist/ssr/ArrowRight';
 import { ArrowUpRightIcon } from '@phosphor-icons/react/dist/ssr/ArrowUpRight';
@@ -12,21 +11,42 @@ import { SiteFooter } from '@/components/site-footer';
 import { IntroVideo } from '@/components/intro-video';
 import { Changelog } from '@/components/changelog';
 import { demoPill } from '@/lib/fixtures';
+import { publicPageMetadata, siteDescription, siteTitle } from '@/lib/seo';
+import { siteUrl } from '@/lib/site-url';
 
 const repository = 'https://github.com/pradeept/noteesta';
 
-export const metadata: Metadata = {
-  title: 'Noteesta — Make sense of what you study',
-  description:
-    'A self-hosted study workspace. Turn your materials into source-linked notes, visuals, and practice with local Ollama or your own API keys.',
-  alternates: { canonical: '/', types: { 'text/markdown': '/llm' } },
-  openGraph: {
-    title: 'Noteesta — Make sense of what you study',
-    description:
-      'Self-host your study workspace with Ollama or your own API keys. Bring scattered materials together in a Study Pill.',
-    type: 'website',
-    url: '/',
-  },
+export const metadata = publicPageMetadata(siteTitle, siteDescription, '/');
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}/#website`,
+      name: 'Noteesta',
+      url: siteUrl,
+      description: siteDescription,
+      inLanguage: 'en',
+    },
+    {
+      '@type': ['SoftwareApplication', 'SoftwareSourceCode'],
+      '@id': `${siteUrl}/#application`,
+      name: 'Noteesta',
+      url: siteUrl,
+      description: siteDescription,
+      applicationCategory: 'EducationalApplication',
+      operatingSystem: 'Web',
+      isAccessibleForFree: true,
+      codeRepository: repository,
+      featureList: [
+        'Source-linked notes from PDFs, recordings, and handwritten notes',
+        'Flashcards, quizzes, and study roadmaps',
+        'Interactive visuals and optional 3D models',
+        'Self-hosting with Ollama or personal provider keys',
+      ],
+    },
+  ],
 };
 
 export default function Home() {
@@ -34,6 +54,12 @@ export default function Home() {
 
   return (
     <div className="marketing-page">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+        }}
+      />
       <a className="marketing-skip" href="#main-content">
         Skip to content
       </a>
@@ -61,16 +87,16 @@ export default function Home() {
       <main id="main-content">
         <section className="marketing-hero" aria-labelledby="hero-title">
           <div className="marketing-hero-copy">
-            <p className="marketing-intro">Your materials. Your self-hosted study workspace.</p>
+            <p className="marketing-intro">Your sources. Your models. Your study workspace.</p>
             <h1 id="hero-title">
               Make sense of
               <br />
               <em>what you study.</em>
             </h1>
             <p className="marketing-lead">
-              Turn recordings, PDFs, and handwritten notes into a Study Pill: clear explanations,
-              sources you can check, and practice when you need it. Run Noteesta yourself with local
-              Ollama or bring your own API keys.
+              An open-source alternative to Turbo AI and Google NotebookLM. Turn recordings, PDFs,
+              and handwritten notes into a Study Pill: clear explanations, sources you can check,
+              and practice when you need it. Self-host with local Ollama or bring your own API keys.
             </p>
             <div className="marketing-hero-actions">
               <a

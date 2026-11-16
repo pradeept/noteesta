@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: ['/', '/app', '/llm', '/llms.txt'],
+      allow: '/',
       disallow: ['/workspace', '/pills/', '/settings'],
     },
     sitemap: `${siteUrl}/sitemap.xml`,

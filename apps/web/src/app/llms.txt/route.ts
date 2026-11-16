@@ -3,7 +3,7 @@ import { siteUrl } from '@/lib/site-url';
 export function GET() {
   const markdown = `# Noteesta
 
-> A self-hosted, open-source study workspace. Turn your materials into source-linked Study Pills with local Ollama or your own provider keys.
+> An open-source alternative to Turbo AI and Google NotebookLM. Self-host your study workspace and turn your materials into source-linked Study Pills with local Ollama or your own provider keys.
 
 ## Start here
 
