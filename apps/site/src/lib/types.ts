@@ -1,0 +1,224 @@
+export type MaterialKey = 'notes' | 'flashcards' | 'mcqs' | 'trueFalse' | 'roadmap' | 'threeD';
+
+export type Provider =
+  'ollama' | 'openai' | 'anthropic' | 'gemini' | 'huggingface' | 'deepseek' | 'zai';
+export type HostedProvider = Exclude<Provider, 'ollama'>;
+
+export interface GenerationSelection {
+  provider: Provider;
+  model: string;
+}
+
+export interface GenerationOption extends GenerationSelection {
+  label: string;
+  available: boolean;
+  reason: string | null;
+  tier?: string;
+}
+
+export interface ProviderStatus {
+  provider: HostedProvider;
+  label: string;
+  configured: boolean;
+  suffix: string | null;
+  updatedAt: string | null;
+  testedModels: string[];
+}
+
+export interface AISettings {
+  defaultGeneration: GenerationSelection;
+  keysEnabled: boolean;
+  providers: ProviderStatus[];
+  models: GenerationOption[];
+}
+
+export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube';
+
+export interface Citation {
+  sourceId: string;
+  sourceName: string;
+  locator: string;
+  excerpt: string;
+}
+
+export interface Source {
+  id: string;
+  name: string;
+  kind: SourceKind;
+  detail: string;
+  status: 'uploaded' | 'processing' | 'ready' | 'failed';
+  originalAvailable?: boolean;
+  excerpt?: string;
+}
+
+export type CollectionColor = 'moss' | 'ocean' | 'terracotta' | 'plum' | 'gold' | 'slate';
+
+export interface Collection {
+  id: string;
+  name: string;
+  color: CollectionColor;
+  createdAt: string;
+}
+
+export interface LibraryPillReference {
+  id: string;
+  title: string;
+}
+
+export interface LibraryEntry {
+  sourceId: string;
+  name: string;
+  kind: SourceKind;
+  detail: string;
+  originalAvailable: boolean;
+  youtubeUrl?: string | null;
+  pills: LibraryPillReference[];
+}
+
+export interface NoteSection {
+  id: string;
+  title: string;
+  markdown: string;
+  citations: Citation[];
+}
+
+export interface VisualSpec {
+  id: string;
+  title: string;
+  description: string;
+  kind: 'flow' | 'bar' | 'timeline';
+  nodes?: Array<{ id: string; label: string; detail: string }>;
+  edges?: Array<{ from: string; to: string; label: string }>;
+  data?: Array<{ label: string; value: number; unit?: string }>;
+  citations: Citation[];
+  assetUrl?: string;
+}
+
+export interface ThreeDMetadata {
+  status: 'ready' | 'unavailable';
+  title?: string | null;
+  description?: string | null;
+  citations: Citation[];
+  reason?: string | null;
+}
+
+export interface ThreeDCode {
+  javascript: string;
+  version: number;
+}
+
+export interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  citations: Citation[];
+}
+
+export interface Mcq {
+  id: string;
+  question: string;
+  choices: string[];
+  correctIndex: number;
+  explanation: string;
+  citations: Citation[];
+}
+
+export interface TrueFalseQuestion {
+  id: string;
+  statement: string;
+  answer: boolean;
+  explanation: string;
+  citations: Citation[];
+}
+
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  description: string;
+  sectionId: string;
+}
+
+export interface StudyArtifact {
+  summary: string;
+  sections: NoteSection[];
+  visuals: VisualSpec[];
+  flashcards: Flashcard[];
+  mcqs: Mcq[];
+  trueFalse: TrueFalseQuestion[];
+  roadmap: RoadmapItem[];
+  threeD?: ThreeDMetadata | null;
+}
+
+export interface StudyPill {
+  id: string;
+  title: string;
+  subject: string;
+  description?: string | null;
+  tags: string[];
+  collectionId?: string | null;
+  status: 'draft' | 'queued' | 'processing' | 'ready' | 'failed';
+  progress: number;
+  stage?: string;
+  selectedMaterials: MaterialKey[];
+  generation: GenerationSelection;
+  effectiveGeneration?: GenerationSelection | null;
+  sources: Source[];
+  artifact?: StudyArtifact;
+  notesRevisionId?: string | null;
+  updatedAt: string;
+  processingDurationSeconds?: number | null;
+  error?: string;
+  isDemo?: boolean;
+}
+
+export interface NoteDocument {
+  type: string;
+  attrs?: Record<string, unknown>;
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  content?: NoteDocument[];
+}
+
+export interface NoteVersionSummary {
+  revisionId: string;
+  groupId: string;
+  createdAt: string;
+  kind: 'generated' | 'edited' | 'restored';
+  excerpt: string;
+}
+
+export interface NoteVersion extends NoteVersionSummary {
+  document: NoteDocument | null;
+  generated: {
+    summary: string;
+    sections: Array<{ id: string; title: string; markdown: string; citationIds: string[] }>;
+  } | null;
+  references: Record<string, Citation>;
+  visuals: VisualSpec[];
+}
+
+export interface NoteHistory {
+  items: NoteVersionSummary[];
+  nextCursor: string | null;
+  currentRevisionId: string;
+}
+
+export interface ChatAnswer {
+  answer: string;
+  citations: Citation[];
+  grounded: boolean;
+  effectiveGeneration?: GenerationSelection | null;
+}
+
+export interface CreatePillInput {
+  title: string;
+  subject: string;
+  youtubeUrl?: string;
+  files: File[];
+  selectedMaterials: MaterialKey[];
+  detailLevel: 'concise' | 'balanced' | 'detailed';
+  learnerLevel: 'beginner' | 'intermediate' | 'advanced';
+  targetExamDate?: string;
+  studyHoursPerDay?: number;
+  generation?: GenerationSelection;
+}

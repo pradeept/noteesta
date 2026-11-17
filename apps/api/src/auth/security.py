@@ -32,6 +32,8 @@ def fail(code: str, message: str, status: int = 401) -> HTTPException:
 
 def validate_auth_settings() -> None:
     settings = get_settings()
+    if not settings.noteesta_auth_enabled:
+        return
     if settings.jwt_secret and len(settings.jwt_secret) < 32:
         raise RuntimeError("JWT_SECRET must contain at least 32 characters.")
     if settings.email_adapter not in {"local", "resend"}:
