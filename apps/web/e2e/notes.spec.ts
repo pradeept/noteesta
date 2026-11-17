@@ -82,6 +82,7 @@ async function noteWorkspace(page: Page) {
     };
     const json = (body: unknown, status = 200) => route.fulfill({ json: body, status, headers });
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (path === '/config') return json({ authEnabled: true, localUser: null });
     if (path === '/auth/refresh')
       return json({
         accessToken: 'notes-token',

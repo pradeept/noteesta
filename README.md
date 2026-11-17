@@ -8,14 +8,12 @@
     <a href="#docker">Docker Compose</a> ·
     <a href="#local-setup">Local development</a> ·
     <a href="#documentation">Documentation</a> ·
-    <a href="apps/web/content/changelog.md">Changelog</a> ·
+    <a href="apps/site/content/changelog.md">Changelog</a> ·
     <a href="https://github.com/pradeept/noteesta/issues">Issues</a>
   </p>
 </div>
 
-<a href="https://noteesta.com">
-  <img src="apps/web/public/media/noteesta-intro-poster.jpg" alt="Noteesta Study Pill with source-linked photosynthesis notes and study activities" width="100%" />
-</a>
+[Watch the 43-second Noteesta video](https://noteesta.com/media/noteesta-intro.mp4)
 
 ## What is Noteesta?
 
@@ -63,36 +61,31 @@ cp apps/web/.env.example apps/web/.env
 cp apps/api/.env.example apps/api/.env
 ```
 
-Generate two separate values and paste them into the backend environment file:
+For hosted AI provider keys (BYOK), generate an encryption key and paste it into the backend environment file. Local Ollama needs no auth secrets:
 
 ```bash
-# JWT_SECRET
-openssl rand -hex 32
-
 # PROVIDER_KEYS_ENCRYPTION_KEY — required for BYOK
 openssl rand -base64 32 | tr '/+' '_-'
 ```
 
-In **`apps/web/.env`**, enable the workspace:
+In **`apps/web/.env`**, set the browser-facing API URL:
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-NOTEESTA_ENABLE_WORKSPACE=true
-NOTEESTA_SITE_URL=http://localhost:3000
 ```
 
 In **`apps/api/.env`**, replace these values; keep the remaining example defaults for a local setup:
 
 ```dotenv
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/?retryWrites=true&w=majority
-JWT_SECRET=<paste-the-generated-JWT-secret>
+NOTEESTA_AUTH_ENABLED=false
 PROVIDER_KEYS_ENCRYPTION_KEY=<paste-the-generated-encryption-key>
 WEB_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000
 EMAIL_ADAPTER=local
 ```
 
-Use your Atlas connection string and URL-encode special characters in its username/password. Keep the two secrets stable: replacing the JWT secret invalidates sessions; losing the encryption key makes existing saved provider keys unreadable. See [environment settings](#environment) and the [self-hosting guide](docs/self-hosting.md) for details.
+Use your Atlas connection string and URL-encode special characters in its username/password. Keep the encryption key stable; losing it makes existing saved provider keys unreadable. See [environment settings](#environment) and the [self-hosting guide](docs/self-hosting.md) for details.
 
 ### 3. Prepare Ollama and MongoDB
 
@@ -132,7 +125,7 @@ Build and start Noteesta:
 docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --build
 ```
 
-Open **[localhost:3000](http://localhost:3000)**. To create your first account, follow [Create an account](#create-an-account).
+Open **[localhost:3000](http://localhost:3000)**. Your local workspace opens immediately; account setup is optional.
 
 Useful commands, from the repository root:
 
@@ -197,15 +190,15 @@ cd apps/api
 uv run celery -A workers.celery_app:celery_app worker --loglevel=INFO --pool=solo
 ```
 
-Open **[localhost:3000](http://localhost:3000)** and [create an account](#create-an-account). Restart the API and worker after changing backend environment values.
+Open **[localhost:3000](http://localhost:3000)** to open your local workspace (no account needed). Restart the API and worker after changing backend environment values.
 
 ### Local endpoints
 
 | Service                        | Address                                                               |
 | ------------------------------ | --------------------------------------------------------------------- |
-| Homepage                       | [localhost:3000](http://localhost:3000)                               |
+| Workspace                       | [localhost:3000](http://localhost:3000)                               |
 | Your workspace                 | [localhost:3000/workspace](http://localhost:3000/workspace)           |
-| Interactive sample             | [localhost:3000/app](http://localhost:3000/app)                       |
+| Interactive sample             | [noteesta.com/app](https://noteesta.com/app) |
 | API documentation              | [localhost:8000/docs](http://localhost:8000/docs)                     |
 | Dependency health              | [localhost:8000/api/v1/healthz](http://localhost:8000/api/v1/healthz) |
 | S3-compatible storage endpoint | `http://localhost:8333` — API endpoint, not a web console             |
@@ -213,6 +206,8 @@ Open **[localhost:3000](http://localhost:3000)** and [create an account](#create
 Use `localhost` consistently; changing to `127.0.0.1` also requires matching frontend origin, CORS, and authentication settings. If port 3000 is busy, free it before starting the frontend or update all origin settings together.
 
 ## Create an account
+
+Optional: set `NOTEESTA_AUTH_ENABLED=true` and configure a stable `JWT_SECRET` first. See [authentication](docs/authentication.md) for production email and HTTPS requirements.
 
 1. Open [localhost:3000/register](http://localhost:3000/register) and enter your name and email.
 2. With `EMAIL_ADAPTER=local`, find the verification URL in the generated email JSON:
@@ -233,12 +228,12 @@ There is no shared root `.env` file. Copy and edit both app templates:
 
 | Template                                                           | Used by                                                              |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| [`apps/web/.env.example`](apps/web/.env.example) → `apps/web/.env` | Next.js; Compose frontend build arguments and runtime workspace flag |
+| [`apps/web/.env.example`](apps/web/.env.example) → `apps/web/.env` | Product frontend; Compose frontend build arguments |
 | [`apps/api/.env.example`](apps/api/.env.example) → `apps/api/.env` | FastAPI, Celery, storage, generation, and optional evaluations       |
 
 | Setting                                  | Purpose                                                                                        |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `NOTEESTA_ENABLE_WORKSPACE`              | Set to `true` for your workspace. The example defaults to the public sample only.              |
+| `NOTEESTA_AUTH_ENABLED` | Backend auth mode. Local example and Compose default to `false`; backend default is `true`. |
 | `NEXT_PUBLIC_API_URL`                    | Browser-facing API URL; `http://localhost:8000/api/v1` locally. Baked into the frontend build. |
 | `NOTEESTA_SITE_URL`                      | Website origin for canonical metadata, sitemap, and LLM guides. Set before building.           |
 | `MONGODB_URI`                            | Connection string reachable by both API and worker; Compose does not start MongoDB.            |
@@ -275,7 +270,8 @@ Missing personal keys fall back to the configured Ollama generation model. Inval
 ### Repository layout
 
 ```text
-apps/web/        Next.js frontend, public site, and workspace
+apps/site/       Public website and interactive demo (independent deployment)
+apps/web/        Learning workspace
 apps/api/        FastAPI service, Celery workers, and model evaluations
 docs/            Setup, architecture, and product guides
 compose.yaml     Local self-hosting services
@@ -313,7 +309,7 @@ Optional live generation evaluations and package-build checks are in the [self-h
 
 ## Changelog
 
-See [the changelog](apps/web/content/changelog.md) for authentication, in-place editing, BYOK, and other updates. This Markdown file also renders in the landing page’s collapsed Changelog.
+See [the changelog](apps/site/content/changelog.md) for authentication, in-place editing, BYOK, and other updates. This Markdown file also renders in the landing page’s collapsed Changelog.
 
 Add entries under `Unreleased`, then move them to a dated heading when released. Rebuild and deploy the web app to publish the updated notes; no component changes are required.
 
@@ -330,7 +326,7 @@ The [original hackathon plan](docs/plan.md) and [HTML prototypes](docs/prototype
 
 | Symptom                   | What to check                                                                                                                                |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Workspace is unavailable  | Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`; restart the frontend or recreate the Compose web container.                         |
+| Workspace is unavailable | Check API connectivity and `/api/v1/config`; the product workspace is always enabled. |
 | MongoDB fails in Docker   | Container `localhost` is not your host. Use a reachable Atlas connection string and allow the API/worker’s outbound address in Atlas.        |
 | Ollama connection refused | Check the installed models, bind address, and `OLLAMA_DOCKER_BASE_URL`; see [Ollama connectivity](docs/self-hosting.md#ollama-connectivity). |
 | Pill stays queued         | Confirm the Celery worker is running and can reach Redis, MongoDB, storage, and Ollama.                                                      |
@@ -339,3 +335,13 @@ The [original hackathon plan](docs/plan.md) and [HTML prototypes](docs/prototype
 | BYOK is unavailable       | Set the same persistent encryption key for API and worker, restart them, and add your personal key in Settings.                              |
 
 For project questions, [open an issue](https://github.com/pradeept/noteesta/issues) or email [contact@noteesta.com](mailto:contact@noteesta.com).
+
+## License
+
+[MIT](LICENSE). You can use, modify, publish, distribute, sublicense, and sell copies, including commercially. Keep the copyright and license notice with copies or substantial portions of the software.
+
+## Public website deployment
+
+The landing page and bundled interactive demo live in `apps/site`. Run `pnpm install` and `pnpm dev` there; no backend services or auth configuration are needed. Set `NOTEESTA_SITE_URL` before building. For noteesta.com on Vercel, change the project Root Directory to `apps/site`. The product Compose stack does not include this website.
+
+See [deployment modes](docs/deployment-modes.md) for local ownership, switching auth on, and deployment configuration.

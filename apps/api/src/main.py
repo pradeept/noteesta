@@ -60,6 +60,12 @@ app.add_middleware(
 
 @app.middleware("http")
 async def private_cache_headers(request, call_next):
+    if request.url.path.startswith("/api/v1/auth") and not get_settings().noteesta_auth_enabled:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Authentication is disabled."},
+            headers={"Cache-Control": "no-store"},
+        )
     response = await call_next(request)
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
@@ -74,3 +80,22 @@ app.include_router(collections_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
 app.include_router(settings_router, prefix="/api/v1")
+
+
+@app.get("/api/v1/config")
+async def runtime_config():
+    enabled = get_settings().noteesta_auth_enabled
+    return {
+        "authEnabled": enabled,
+        "localUser": (
+            None
+            if enabled
+            else {
+                "id": "local-workspace",
+                "email": "",
+                "displayName": "Local workspace",
+                "emailVerified": True,
+                "loginMethods": [],
+            }
+        ),
+    }

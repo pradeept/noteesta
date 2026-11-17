@@ -41,6 +41,24 @@ async def test_unsuitable_handoff_does_not_call_openai(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
+async def test_unsuitable_handoff_preserves_complete_explanation() -> None:
+    reason = (
+        "The grounded notes describe an HTML cheatsheet and explain document structure, "
+        "including the head and body, block and inline elements, and table rows and cells. "
+        "These are useful organizational relationships, but the sources do not establish "
+        "physical shapes or spatial relationships that would support a useful 3D model."
+    )
+    assert len(reason) > 240
+    metadata, code, handoff = await prepare_three_d(
+        FakeOrchestrator({"suitable": False, "reason": reason}),
+        "grounded notes",
+        {"lecture": source()},
+    )
+    assert metadata.reason == reason
+    assert code is None and handoff is None
+
+
+@pytest.mark.asyncio
 async def test_handoff_requires_source_evidence_before_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

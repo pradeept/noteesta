@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation';
 import { AuthGuard } from '@/components/auth-guard';
 import { AISettingsPage } from '@/components/ai-settings';
 
@@ -9,7 +8,6 @@ export const metadata = {
 };
 
 export default function Settings() {
-  if (process.env.NOTEESTA_ENABLE_WORKSPACE !== 'true') notFound();
   return (
     <AuthGuard>
       <AISettingsPage />

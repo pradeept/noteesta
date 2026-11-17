@@ -27,6 +27,7 @@ interface Tokens {
   user: User;
 }
 interface Session {
+  authEnabled?: boolean;
   status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable';
   user: User | null;
 }
@@ -119,11 +120,28 @@ export function refreshSession(): Promise<void> {
   if (!refreshFlight || refreshEpoch !== epoch) {
     const started = epoch;
     refreshEpoch = started;
-    refreshFlight = sessionLock(async () => {
+    refreshFlight = (async () => {
+      const response = await fetch(`${API_URL}/config`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw await responseError(response);
       if (started !== epoch) return;
-      const tokens = await authRequest<Tokens>('/refresh');
-      if (started === epoch) install(tokens);
-    })
+      const config = (await response.json()) as { authEnabled: boolean; localUser: User | null };
+      if (typeof config.authEnabled !== 'boolean' || (!config.authEnabled && !config.localUser))
+        throw new Error('Invalid workspace configuration');
+      if (started !== epoch) return;
+      if (!config.authEnabled) {
+        accessToken = null;
+        publish({ status: 'authenticated', user: config.localUser, authEnabled: false });
+        return;
+      }
+      await sessionLock(async () => {
+        if (started !== epoch) return;
+        const tokens = await authRequest<Tokens>('/refresh');
+        if (started === epoch) install(tokens);
+      });
+    })()
       .catch((error: unknown) => {
         if (started === epoch) {
           if (error instanceof ApiError && error.status === 401) clearSession();
@@ -182,13 +200,14 @@ export function connectSession() {
 }
 
 export async function authenticatedFetch(path: string, init?: RequestInit) {
-  if (!accessToken || expiresAt <= Date.now() + 10_000) await refreshSession();
-  if (!accessToken)
+  if (session.authEnabled !== false && (!accessToken || expiresAt <= Date.now() + 10_000))
+    await refreshSession();
+  if (session.authEnabled !== false && !accessToken)
     throw new ApiError(401, 'authentication_required', 'Please sign in to continue.');
   const started = epoch;
   const send = () => {
     const headers = new Headers(init?.headers);
-    headers.set('Authorization', `Bearer ${accessToken}`);
+    if (session.authEnabled !== false) headers.set('Authorization', `Bearer ${accessToken}`);
     return fetch(`${API_URL}${path}`, {
       ...init,
       headers,
@@ -197,7 +216,7 @@ export async function authenticatedFetch(path: string, init?: RequestInit) {
     });
   };
   let response = await send();
-  if (response.status === 401) {
+  if (response.status === 401 && session.authEnabled !== false) {
     await refreshSession();
     if (started !== epoch || !accessToken) throw new DOMException('Session changed', 'AbortError');
     response = await send();
@@ -211,5 +230,5 @@ export async function authenticatedFetch(path: string, init?: RequestInit) {
 export function safeReturnPath(value: string | null) {
   return value?.startsWith('/') && !value.startsWith('//') && !/[\\\u0000-\u0020]/u.test(value)
     ? value
-    : '/workspace';
+    : '/';
 }

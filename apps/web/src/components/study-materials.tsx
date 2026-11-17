@@ -113,12 +113,7 @@ export function StudyMaterials({
           />
         ) : null}
         {active === 'threeD' ? (
-          <ThreeDMaterial
-            pillId={pillId}
-            metadata={artifact.threeD}
-            isDemo={isDemo}
-            onCitation={onCitation}
-          />
+          <ThreeDMaterial pillId={pillId} metadata={artifact.threeD} onCitation={onCitation} />
         ) : null}
       </motion.div>
     </>

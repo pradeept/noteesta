@@ -6,8 +6,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy
 
 WORKDIR /workspace/apps/api
+# RapidOCR uses OpenCV, whose Linux wheel needs these shared libraries.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libxcb1 libgl1 libglib2.0-0t64 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
+# Fail the build if OCR dependencies cannot load, before accepting uploads.
+RUN .venv/bin/python -c "import cv2; import onnxruntime; from rapidocr import RapidOCR"
 
 COPY apps/api/main.py ./main.py
 COPY apps/api/src ./src

@@ -10,7 +10,7 @@ Learners combining recordings, videos, handwritten notes, and documents into a f
 
 ## Product purpose
 
-Build an open-source alternative to Turbo AI and Google NotebookLM, with self-hosting and model choice. Generate well-structured Markdown notes with source-supported charts and visuals from one or more selected resources. Generate roadmap, flashcards, MCQs, true-or-false, and interactive 3D alongside notes only when selected. Retrieval is scoped by the authenticated user and Pill. Email/password and Google sign-in use verified accounts and rotating JWT sessions. The public example uses bundled content, while the live workspace requires `NOTEESTA_ENABLE_WORKSPACE=true`.
+Build an open-source alternative to Turbo AI and Google NotebookLM, with self-hosting and model choice. Generate well-structured Markdown notes with source-supported charts and visuals from one or more selected resources. Generate roadmap, flashcards, MCQs, true-or-false, and interactive 3D alongside notes only when selected. Retrieval is scoped by the authenticated user and Pill. Email/password and Google sign-in use verified accounts and rotating JWT sessions. The public example uses bundled content, while the independent product opens directly into the workspace and supports optional authentication through `NOTEESTA_AUTH_ENABLED`.
 
 ## Brand personality
 

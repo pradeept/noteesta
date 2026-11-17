@@ -67,17 +67,19 @@ Compose starts SeaweedFS with persistent object storage in the `seaweedfs-data` 
 
 Original files, canonical extraction JSON, and generated PNG visuals live in object storage. Notes and practice artifacts live in MongoDB. Interactive 3D JavaScript and its cited handoff live in the `pill_three_d` collection and load through an owner-scoped endpoint when the 3D tab opens. ZIP export contains Markdown and PNG visuals; it excludes original files and interactive models.
 
+`S3_ENDPOINT_URL` is used for server-side storage operations. Set `S3_PUBLIC_ENDPOINT_URL` when browsers reach the same bucket through a different origin. Compose uses `http://seaweedfs:8333` internally and defaults signed links to `http://localhost:8333`. For remote deployments, set the public endpoint to an address reachable by users' browsers. URLs are signed directly for that endpoint; their host is never rewritten after signing. Outside Compose, leaving the public endpoint empty preserves the existing S3 endpoint and signing behavior. Use the same region, credentials, and bucket for both endpoints.
+
 Stopping Compose with `down` retains the named storage volume. Removing that volume deletes stored objects; back up both MongoDB and object storage when keeping real study materials. Development email previews inside the API container are not in that volume and can disappear when the container is recreated; resend verification to generate a new preview if needed.
 
 ## Public deployments
 
 The supplied Compose file is a local development/self-hosting configuration. For a public deployment:
 
-- Set `APP_ENV=production`, a stable `JWT_SECRET` of at least 32 characters, and your persistent provider-key encryption key if using BYOK.
+- For an account-based public deployment set `NOTEESTA_AUTH_ENABLED=true`, `APP_ENV=production`, a stable `JWT_SECRET` of at least 32 characters, and your persistent provider-key encryption key if using BYOK.
 - Configure `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` on a verified sender domain. Production startup requires Resend and an HTTPS `WEB_URL`.
 - Set `WEB_URL` and `CORS_ORIGINS` to the exact frontend origin. Keep frontend and API under the same parent domain and use HTTPS. See [authentication deployment details](authentication.md#google-and-resend).
-- Set `NEXT_PUBLIC_API_URL` to the browser-accessible API origin plus `/api/v1`. This is a frontend build argument; rebuild the image when changing it. `NOTEESTA_ENABLE_WORKSPACE` is passed at runtime by Compose.
-- Set `NOTEESTA_SITE_URL` before building to your public website origin. Its default is `https://noteesta.com`; it drives canonical metadata, robots, sitemap, and LLM guides. For Vercel, use `apps/web` as the project’s Root Directory.
+- Set `NEXT_PUBLIC_API_URL` to the browser-accessible API origin plus `/api/v1`. This is a frontend build argument; rebuild the image when changing it.
+- For the separate website only, set `NOTEESTA_SITE_URL` before building to your public website origin. Its default is `https://noteesta.com`; it drives canonical metadata, robots, sitemap, and LLM guides. For the public website on Vercel, use `apps/site` as the project’s Root Directory. The product has no marketing SEO configuration.
 - Replace the example storage credentials and configure persistent storage, database backups, and an API ingress appropriate to your deployment. The local Compose API port binds to loopback.
 
 Google sign-in is optional; configure the OAuth credentials and exact callback URL in the [authentication guide](authentication.md). Local email previews are for development only.

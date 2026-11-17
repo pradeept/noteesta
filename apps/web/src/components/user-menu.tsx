@@ -9,7 +9,7 @@ import { useOptionalNotesGuard } from '@/components/notes-save-guard';
 import { signOut } from '@/lib/session';
 
 export function UserMenu() {
-  const { user } = useSession();
+  const { user, authEnabled } = useSession();
   const notesGuard = useOptionalNotesGuard();
   const [busy, setBusy] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);
@@ -26,6 +26,12 @@ export function UserMenu() {
       setBusy(false);
     }
   }
+  if (authEnabled === false)
+    return (
+      <Link className="quiet-button" href="/settings">
+        Settings
+      </Link>
+    );
   return (
     <>
       <DropdownMenu.Root>

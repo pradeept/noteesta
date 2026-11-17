@@ -3,22 +3,19 @@
 import { useThreeD } from '@/lib/queries';
 import { CitationButton } from '@/components/citation-button';
 import { ThreeDViewer } from '@/components/three-d-viewer';
-import { demoThreeDJavaScript } from '@/lib/fixtures';
 import type { Citation, ThreeDMetadata } from '@/lib/types';
 
 export function ThreeDMaterial({
   pillId,
   metadata,
-  isDemo,
   onCitation,
 }: {
   pillId: string;
   metadata?: ThreeDMetadata | null;
-  isDemo: boolean;
   onCitation: (citation: Citation) => void;
 }) {
-  const query = useThreeD(pillId, !isDemo && metadata?.status === 'ready');
-  const javascript = isDemo ? demoThreeDJavaScript : query.data?.javascript;
+  const query = useThreeD(pillId, metadata?.status === 'ready');
+  const javascript = query.data?.javascript;
   const error = query.error?.message;
 
   if (!metadata || metadata.status === 'unavailable') {

@@ -7,12 +7,8 @@ services:
       dockerfile: Dockerfile.web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-        NOTEESTA_SITE_URL: ${NOTEESTA_SITE_URL:-https://noteesta.com}
-    environment:
-      NOTEESTA_SITE_URL: ${NOTEESTA_SITE_URL:-https://noteesta.com}
-      NOTEESTA_ENABLE_WORKSPACE: ${NOTEESTA_ENABLE_WORKSPACE:-false}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -25,10 +21,12 @@ services:
       - path: apps/api/.env
         required: false
     environment:
-      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in apps/api/.env}
+      NOTEESTA_AUTH_ENABLED: ${NOTEESTA_AUTH_ENABLED:-false}
+      MONGODB_URI: ${MONGODB_URI:?Run docker compose --env-file apps/api/.env up --build}
       MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-vector_index}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://seaweedfs:8333
+      S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:8333}
       OLLAMA_BASE_URL: ${OLLAMA_DOCKER_BASE_URL:-http://host.docker.internal:11434}
     ports:
       - "127.0.0.1:8000:8000"
@@ -70,10 +68,12 @@ services:
       - path: apps/api/.env
         required: false
     environment:
-      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in apps/api/.env}
+      NOTEESTA_AUTH_ENABLED: ${NOTEESTA_AUTH_ENABLED:-false}
+      MONGODB_URI: ${MONGODB_URI:?Run docker compose --env-file apps/api/.env up --build}
       MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-vector_index}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://seaweedfs:8333
+      S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:8333}
       OLLAMA_BASE_URL: ${OLLAMA_DOCKER_BASE_URL:-http://host.docker.internal:11434}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -86,7 +86,7 @@ services:
   redis:
     image: redis:8-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -101,7 +101,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-change-me}
       S3_BUCKET: ${S3_BUCKET:-noteesta}
     ports:
-      - "8333:8333"
+      - "127.0.0.1:8333:8333"
     volumes:
       - seaweedfs-data:/data
 
