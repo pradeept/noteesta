@@ -1,13 +1,15 @@
 # Authentication and frontend data
 
-Noteesta owns its accounts in FastAPI and MongoDB. Email/password and Google sign-in produce the same application session. Signup is open; workspace access requires a verified email. Existing development records are not automatically assigned to new accounts. The public homepage and `/app` example remain accessible without authentication or API calls.
+Authentication is optional. The local environment template and Compose use `NOTEESTA_AUTH_ENABLED=false`; no auth secrets, email setup, or registration are needed in that mode. The backend defaults to auth enabled when the setting is omitted. See [deployment modes](deployment-modes.md). The account/session documentation below applies when auth is enabled.
+
+Noteesta owns its accounts in FastAPI and MongoDB. Email/password and Google sign-in produce the same application session. Signup is open; workspace access requires a verified email. Existing development records are not automatically assigned to new accounts. The public homepage and `/app` example live in the independent `apps/site` app.
 
 ## Local setup
 
 1. Install frontend dependencies with `cd apps/web && pnpm install` and, from `apps/api`, `uv sync --extra dev`.
 2. Start MongoDB, Redis, and object storage as described in the root README. Auth rate limiting needs Redis even when generation is not running.
 3. In `apps/api/.env`, set a stable `JWT_SECRET` (generate with `openssl rand -hex 32`), `WEB_URL=http://localhost:3000`, and `CORS_ORIGINS=http://localhost:3000`. An empty secret is supported only in development and invalidates sessions on process restart; use a stable secret for multiple API processes.
-4. Set `NOTEESTA_ENABLE_WORKSPACE=true` in `apps/web/.env`, start both applications, and open `/register`.
+4. Set `NOTEESTA_AUTH_ENABLED=true` in `apps/api/.env`, start both applications, and open `/register`.
 5. With `EMAIL_ADAPTER=local`, find email previews in `.local/emails/` relative to the API working directory, normally `apps/api/.local/emails/`. Open the verification URL from the JSON message, choose a password to verify your email, and sign in. Registration collects your name and email; no password is activated until you complete verification. These files contain single-use secrets, are excluded from git, and use private filesystem permissions.
 
 The browser must support Web Locks and run on HTTPS or localhost. Keep frontend and API under the same parent domain in production; cookies are host-only on the API. Frontend origins must exactly match CORS configuration. Browser auth POSTs require an allowed `Origin` and `X-Noteesta-Client: web`; private resource requests require `Authorization: Bearer <accessToken>`. The former `X-User-Id` header and demo identity bypass are removed.

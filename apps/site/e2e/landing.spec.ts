@@ -96,9 +96,14 @@ for (const width of [320, 375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    const navigation = page.getByRole('navigation', { name: 'Main navigation' });
+    const navigation = page.getByRole('navigation', {
+      name: 'Main navigation',
+    });
     for (const link of await navigation.getByRole('link').all()) await expect(link).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`landing-${width}.png`), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath(`landing-${width}.png`),
+      fullPage: true,
+    });
     await page
       .getByRole('contentinfo')
       .screenshot({ path: testInfo.outputPath(`footer-${width}.png`) });

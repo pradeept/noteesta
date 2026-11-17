@@ -13,8 +13,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:3100/login',
     reuseExistingServer: false,
     env: {
-      NOTEESTA_ENABLE_WORKSPACE: 'true',
-      NOTEESTA_SITE_URL: 'https://noteesta.com',
       NEXT_PUBLIC_API_URL: 'http://127.0.0.1:8000/api/v1',
     },
   },

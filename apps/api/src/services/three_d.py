@@ -62,7 +62,7 @@ async def prepare_three_d(
 
     raw = await orchestrator.generate_three_d_handoff(grounded_notes=grounded_notes)
     if not raw.get("suitable"):
-        reason = str(raw.get("reason") or "The sources do not support a useful 3D model.")[:240]
+        reason = str(raw.get("reason") or "The sources do not support a useful 3D model.")
         return ThreeDMetadata(status="unavailable", reason=reason), None, None
 
     parts = raw.get("parts")

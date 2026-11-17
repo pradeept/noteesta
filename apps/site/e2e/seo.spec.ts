@@ -60,7 +60,10 @@ for (const route of ['/', '/app']) {
       expect(image.readUInt32BE(16)).toBe(1200);
       expect(image.readUInt32BE(20)).toBe(630);
       expect(image.length).toBeLessThan(5_000_000);
-      await testInfo.attach(`${name}.png`, { body: image, contentType: 'image/png' });
+      await testInfo.attach(`${name}.png`, {
+        body: image,
+        contentType: 'image/png',
+      });
     }
     expect(await page.locator('head').innerHTML()).not.toContain('noteesta-og.jpg');
     expect(await page.locator('head').innerHTML()).not.toContain('sisters');
@@ -79,7 +82,10 @@ test('the homepage explains the current positioning and exposes valid structured
   expect(data['@context']).toBe('https://schema.org');
   expect(data['@graph']).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ '@type': 'WebSite', url: 'https://noteesta.com' }),
+      expect.objectContaining({
+        '@type': 'WebSite',
+        url: 'https://noteesta.com',
+      }),
       expect.objectContaining({
         '@type': ['SoftwareApplication', 'SoftwareSourceCode'],
         applicationCategory: 'EducationalApplication',
@@ -89,7 +95,7 @@ test('the homepage explains the current positioning and exposes valid structured
   );
 });
 
-test('crawler files list public pages and authentication stays out of search', async ({
+test('crawler files list public pages and account routes are absent', async ({
   page,
   request,
 }) => {
@@ -103,10 +109,11 @@ test('crawler files list public pages and authentication stays out of search', a
   expect(robots.ok()).toBe(true);
   expect(await robots.text()).toContain('Sitemap: https://noteesta.com/sitemap.xml');
   expect(await robots.text()).toContain('Disallow: /pills/');
-  await page.goto('/login');
+  const response = await page.goto('/login');
+  expect(response?.status()).toBe(404);
   await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
     'content',
-    'noindex, nofollow',
+    'noindex',
   );
   await expect(page.locator('head link[rel="canonical"]')).toHaveCount(0);
 });

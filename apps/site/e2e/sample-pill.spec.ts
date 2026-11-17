@@ -24,7 +24,10 @@ test('mock upload, material selection, preparation, and restart never call the b
   await page.goto('/app');
   await expect(page.locator('h1')).not.toBeFocused();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testInfo.outputPath('sample-upload-desktop.png'), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath('sample-upload-desktop.png'),
+    fullPage: true,
+  });
   await page.getByRole('button', { name: 'Upload sample sources' }).click();
   await expect(page.getByRole('button', { name: 'Uploading samples…' })).toBeDisabled();
   await expect(page.getByRole('heading', { name: 'How do you like to learn?' })).toBeVisible();
@@ -76,7 +79,9 @@ test('flashcards and quizzes respond and retain answers between activities', asy
   await activity(page, 'Flashcards').click();
   await page.getByRole('button', { name: /Reveal answer/ }).click();
   await expect(
-    page.getByText('In the thylakoid membrane of the chloroplast.', { exact: true }),
+    page.getByText('In the thylakoid membrane of the chloroplast.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await activity(page, 'Multiple choice').click();
   await page.getByRole('button', { name: 'A Oxygen and carbon dioxide' }).click();
@@ -85,7 +90,10 @@ test('flashcards and quizzes respond and retain answers between activities', asy
   await page.getByRole('button', { name: 'B ATP and NADPH' }).click();
   await expect(page.getByRole('status')).toContainText('Correct.');
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testInfo.outputPath('sample-quiz-feedback.png'), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath('sample-quiz-feedback.png'),
+    fullPage: true,
+  });
   await activity(page, 'True or false').click();
   await page.getByRole('button', { name: 'B False' }).click();
   await expect(page.getByRole('status')).toContainText('Correct.');
@@ -113,7 +121,9 @@ test('source dialog supports keyboard dismissal and restores focus; roadmap open
   page,
 }) => {
   await openSample(page);
-  const reference = page.getByRole('button', { name: /Lecture 04: Photosynthesis · 08:42/ });
+  const reference = page.getByRole('button', {
+    name: /Lecture 04: Photosynthesis · 08:42/,
+  });
   await reference.click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog')).toContainText('thylakoid membrane');

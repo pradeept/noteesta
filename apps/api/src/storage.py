@@ -12,13 +12,21 @@ class ObjectStorage:
     def __init__(self) -> None:
         settings = get_settings()
         self.bucket = settings.s3_bucket
+        client_options = {
+            "aws_access_key_id": settings.s3_access_key_id,
+            "aws_secret_access_key": settings.s3_secret_access_key,
+            "region_name": settings.s3_region,
+            "use_ssl": settings.s3_use_ssl,
+        }
         self.client: BaseClient = boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint_url,
-            aws_access_key_id=settings.s3_access_key_id,
-            aws_secret_access_key=settings.s3_secret_access_key,
-            region_name=settings.s3_region,
-            use_ssl=settings.s3_use_ssl,
+            "s3", endpoint_url=settings.s3_endpoint_url, **client_options
+        )
+        # Sign for the browser-visible endpoint; changing a signed URL's host can
+        # invalidate its signature. Server-side storage operations stay internal.
+        self.download_client = (
+            boto3.client("s3", endpoint_url=settings.s3_public_endpoint_url, **client_options)
+            if settings.s3_public_endpoint_url
+            else self.client
         )
 
     async def ensure_bucket(self) -> None:
@@ -52,7 +60,7 @@ class ObjectStorage:
 
     async def presigned_url(self, key: str, expires: int = 3600) -> str:
         return await asyncio.to_thread(
-            self.client.generate_presigned_url,
+            self.download_client.generate_presigned_url,
             "get_object",
             Params={"Bucket": self.bucket, "Key": key},
             ExpiresIn=expires,

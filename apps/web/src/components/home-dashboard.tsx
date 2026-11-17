@@ -102,7 +102,7 @@ export function HomeDashboard() {
         Skip to your library
       </a>
       <header className="home-header">
-        <Brand href="/workspace" />
+        <Brand href="/" />
         <div className="home-header-actions">
           <UserMenu />
           <ThemePicker value={palette} onChange={choosePalette} />

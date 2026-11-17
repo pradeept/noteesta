@@ -60,11 +60,11 @@ function AccountSettings({ userId }: { userId: string }) {
         Skip to settings
       </a>
       <header className="settings-header">
-        <Brand href="/workspace" />
+        <Brand href="/" />
         <UserMenu />
       </header>
       <main id="settings-content" className="settings-content">
-        <Link href="/workspace" className="settings-back">
+        <Link href="/" className="settings-back">
           <ArrowLeftIcon size={16} /> Back to your workspace
         </Link>
         <h1>Settings</h1>

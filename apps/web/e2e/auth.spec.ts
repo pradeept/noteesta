@@ -46,6 +46,7 @@ async function mockApi(page: Page, requireGoogleEmail = false) {
         );
       return issue();
     }
+    if (path === '/config') return json({ authEnabled: true, localUser: null });
     if (path === '/auth/refresh') {
       if (!(request.headers().cookie ?? '').includes('noteesta_refresh='))
         return json(
@@ -135,7 +136,7 @@ async function login(page: Page, email = 'student-1@example.com') {
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill('a long study passphrase');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspace$/u);
+  await expect(page).toHaveURL(/\/$/u);
 }
 
 test('email signup, verification, login, reload, recovery, and logout', async ({ page }) => {
@@ -218,7 +219,7 @@ test('third-party Google email waits for confirmation before continuing sign-in'
   });
   await expect(page.getByRole('heading', { name: 'You’re all set.' })).toBeVisible();
   await page.getByRole('link', { name: 'Continue with Google' }).click();
-  await expect(page).toHaveURL(/\/workspace$/u);
+  await expect(page).toHaveURL(/\/$/u);
 });
 
 test('clears account data when signing in as another user', async ({ page }) => {
@@ -231,7 +232,7 @@ test('clears account data when signing in as another user', async ({ page }) => 
   await page.getByLabel('Email', { exact: true }).fill('student-2@example.com');
   await page.getByLabel('Password', { exact: true }).fill('a long study passphrase');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspace$/u);
+  await expect(page).toHaveURL(/\/$/u);
   await expect(page.getByText('Private first-account note')).toHaveCount(0);
 });
 
@@ -241,7 +242,7 @@ test('Google sign-in returns through the application callback without URL tokens
   const api = await mockApi(page);
   await page.goto('/login');
   await page.getByRole('link', { name: 'Continue with Google' }).click();
-  await expect(page).toHaveURL(/\/workspace$/u);
+  await expect(page).toHaveURL(/\/$/u);
   await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
   expect(page.url()).not.toContain('accessToken');
   expect(api.calls.filter((path) => path === '/auth/refresh').length).toBeLessThanOrEqual(3);
@@ -279,16 +280,12 @@ test('Google sign-in returns through the application callback without URL tokens
   });
 });
 
-test('public demo makes no API requests; private workspace redirects anonymous visitors', async ({
+test('private workspace redirects anonymous visitors', async ({
   page,
 }, testInfo) => {
-  const api = await mockApi(page);
-  await page.goto('/app');
-  await page.getByRole('button', { name: 'Jump to the sample' }).click();
-  await expect(page.getByRole('heading', { name: 'Photosynthesis, made clear' })).toBeVisible();
-  expect(api.calls).toHaveLength(0);
+  await mockApi(page);
   await page.goto('/workspace');
-  await expect(page).toHaveURL(/\/login\?returnTo=%2Fworkspace$/u);
+  await expect(page).toHaveURL(/\/login\?returnTo=%2F$/u);
   await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('login-desktop.png') });
   await page.setViewportSize({ width: 375, height: 812 });

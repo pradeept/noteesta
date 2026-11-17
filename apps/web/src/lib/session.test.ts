@@ -39,11 +39,14 @@ describe('session transport', () => {
   });
 
   it('deduplicates concurrent refresh attempts', async () => {
-    const send = vi.fn().mockResolvedValue(json(tokens()));
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(json({ authEnabled: true }))
+      .mockResolvedValue(json(tokens()));
     vi.stubGlobal('fetch', send);
     const { refreshSession } = await import('@/lib/session');
     await Promise.all([refreshSession(), refreshSession(), refreshSession()]);
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes and retries a rejected request once', async () => {
@@ -51,14 +54,15 @@ describe('session transport', () => {
       .fn()
       .mockResolvedValueOnce(json(tokens()))
       .mockResolvedValueOnce(json({ detail: 'expired' }, 401))
+      .mockResolvedValueOnce(json({ authEnabled: true }))
       .mockResolvedValueOnce(json(tokens('access-2')))
       .mockResolvedValueOnce(json([]));
     vi.stubGlobal('fetch', send);
     const { signIn, authenticatedFetch } = await import('@/lib/session');
     await signIn(user.email, 'password');
     await authenticatedFetch('/pills');
-    expect(send).toHaveBeenCalledTimes(4);
-    expect(send.mock.calls[3][1].headers.get('Authorization')).toBe('Bearer access-2');
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(send.mock.calls[4][1].headers.get('Authorization')).toBe('Bearer access-2');
   });
 
   it('does not retry permission errors or mutations after a network error', async () => {
@@ -130,8 +134,30 @@ describe('session transport', () => {
   it('rejects external and malformed return URLs', async () => {
     const { safeReturnPath } = await import('@/lib/session');
     for (const value of ['//evil.example', '/\\evil.example', 'https://evil.example', '/\nevil']) {
-      expect(safeReturnPath(value)).toBe('/workspace');
+      expect(safeReturnPath(value)).toBe('/');
     }
     expect(safeReturnPath('/pills/123')).toBe('/pills/123');
   });
+});
+
+it('uses the local identity without tokens or Web Locks', async () => {
+  const localUser = { ...user, id: 'local-workspace', loginMethods: [] };
+  const send = vi
+    .fn()
+    .mockResolvedValueOnce(json({ authEnabled: false, localUser }))
+    .mockResolvedValueOnce(json([]));
+  vi.stubGlobal('fetch', send);
+  vi.stubGlobal('navigator', {});
+  const { refreshSession, authenticatedFetch, getSession } = await import('@/lib/session');
+  await refreshSession();
+  await authenticatedFetch('/pills');
+  expect(getSession().user?.id).toBe('local-workspace');
+  expect(send.mock.calls[1][1].headers.has('Authorization')).toBe(false);
+});
+it('fails closed when runtime configuration is unavailable', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+  const { refreshSession, getSession } = await import('@/lib/session');
+  await expect(refreshSession()).rejects.toThrow('offline');
+  expect(getSession().status).toBe('unavailable');
+  expect(getSession().user).toBeNull();
 });

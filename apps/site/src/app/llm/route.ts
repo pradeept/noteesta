@@ -22,7 +22,7 @@ Read this page for product context. Open the sample Study Pill to inspect what v
 - [Interactive Study Pill example](${siteUrl}/app): A simulated upload and preparation journey with selectable materials, short note chapters, source excerpts, an interactive flow visual, a 3D chloroplast, flashcards, and quizzes. Visitors can jump directly to the sample. It uses bundled content with no backend requests, real uploads, or saved input.
 - [Noteesta intro video](/media/noteesta-intro.mp4): A 43-second, music-only product reveal showing the interactive sample, also available on the homepage.
 - [Source repository](https://github.com/pradeept/noteesta): Implementation and setup details.
-- [Local setup](https://github.com/pradeept/noteesta#local-setup) and [Docker setup](https://github.com/pradeept/noteesta#docker): Deploy your own workspace with configured MongoDB, authentication, object storage, and Ollama. Compose does not start MongoDB. Enable the workspace with NOTEESTA_ENABLE_WORKSPACE=true.
+- [Local setup](https://github.com/pradeept/noteesta#local-setup) and [Docker setup](https://github.com/pradeept/noteesta#docker): Deploy your own workspace with configured MongoDB, authentication, object storage, and Ollama. Compose does not start MongoDB. The product opens directly into a local workspace; authentication is optional.
 
 ## The student use case
 

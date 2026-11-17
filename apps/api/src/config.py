@@ -13,6 +13,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    noteesta_auth_enabled: bool = True
+
     app_env: str = "development"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
@@ -44,6 +46,7 @@ class Settings(BaseSettings):
     celery_task_always_eager: bool = False
 
     s3_endpoint_url: str = "http://localhost:8333"
+    s3_public_endpoint_url: str = ""
     s3_access_key_id: str = "noteesta"
     s3_secret_access_key: str = "change-me"
     s3_bucket: str = "noteesta"
