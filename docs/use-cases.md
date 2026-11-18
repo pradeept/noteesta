@@ -6,18 +6,18 @@ The text below describes current behavior. The SVGs and editable Mermaid sources
 
 ## 1. Create a Study Pill and select sources
 
-A student uploads files and/or provides a YouTube URL, selects a generation model, and chooses study materials. Existing library files cannot yet be selected for a new Pill. The API stores the sources/settings and returns a queued Pill with HTTP 202.
+A student uploads files, pastes a YouTube video link, or combines both in one Study Pill. They then select a generation model and choose study materials. Existing library files cannot yet be selected for a new Pill. The API stores the sources/settings and returns a queued Pill with HTTP 202.
 
 ![Create a Study Pill and select sources](diagrams/01-create-study-pill.svg)
 
 [Editable Mermaid source](diagrams/01-create-study-pill.mmd)
 
-- **YouTube:** The worker prefers accessible regular English captions and falls back to automatic captions. The Study Pill shows a warning when the selected captions are automatic. If no eligible track is accessible, the error suggests uploading a recording instead.
+- **YouTube videos** can be added with a watch or share link. YouTube Shorts are unsupported.
 - **Validation fails:** Keep valid selections. Explain the affected file or URL and let the student correct it.
 
 ## 2. Generate notes and optional study materials
 
-Analyze every chunk of the Pill's saved sources before synthesizing notes. Caption and Whisper cues retain their original start and end times. Group adjacent cues for analysis and search, and use cue times to cite specific details in the notes. Vector search supports targeted chat rather than full-source coverage. For details shown only on screen, attach slides or screenshots alongside the video.
+Noteesta builds notes and optional study materials from the Pill’s selected sources. Video references in the notes can include timestamps. For details shown only on screen, attach slides or screenshots alongside the video.
 
 ![Generate notes and optional study materials](diagrams/02-generate-materials.svg)
 
