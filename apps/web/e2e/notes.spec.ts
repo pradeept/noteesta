@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { NoteDocument, NoteVersion } from '../src/lib/types';
+import type { NoteDocument, NoteVersion, Source } from '../src/lib/types';
 
-async function noteWorkspace(page: Page) {
+async function noteWorkspace(page: Page, extraSources: Source[] = []) {
   const citation = {
     sourceId: 'source-1',
     sourceName: 'Lecture.pdf',
@@ -34,6 +34,7 @@ async function noteWorkspace(page: Page) {
     generation: { provider: 'ollama', model: 'local' },
     sources: [
       { id: 'source-1', name: 'Lecture.pdf', kind: 'pdf', detail: '2 pages', status: 'ready' },
+      ...extraSources,
     ],
     artifact: {
       summary: 'Cells are the building blocks of life.',
@@ -152,6 +153,24 @@ async function noteWorkspace(page: Page) {
     },
   };
 }
+
+test('warns once for the automatic caption source in a ready Study Pill', async ({ page }) => {
+  const youtube = { kind: 'youtube', detail: 'YouTube captions', status: 'ready' } as const;
+  await noteWorkspace(page, [
+    { ...youtube, id: 'automatic', name: 'Automatic lecture', captionTrackKind: 'ASR' },
+    { ...youtube, id: 'standard', name: 'Standard lecture', captionTrackKind: 'standard' },
+    { ...youtube, id: 'legacy', name: 'Legacy lecture' },
+  ]);
+
+  const warning = page.getByText(
+    'YouTube generated these captions automatically. Some words or details may be inaccurate.',
+  );
+  await expect(warning).toHaveCount(1);
+  await expect(warning).toBeVisible();
+  await expect(
+    warning.locator('..').getByRole('button', { name: 'Automatic lecture' }),
+  ).toBeVisible();
+});
 
 async function selectText(page: Page, selector: string) {
   await page

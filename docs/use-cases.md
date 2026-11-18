@@ -12,12 +12,12 @@ A student uploads files and/or provides a YouTube URL, selects a generation mode
 
 [Editable Mermaid source](diagrams/01-create-study-pill.mmd)
 
-- **YouTube:** The worker fetches accessible English captions, including automatic captions. It fails with an error when none are available; it does not download the video as a fallback.
+- **YouTube:** The worker prefers accessible regular English captions and falls back to automatic captions. The Study Pill shows a warning when the selected captions are automatic. If no eligible track is accessible, the error suggests uploading a recording instead.
 - **Validation fails:** Keep valid selections. Explain the affected file or URL and let the student correct it.
 
 ## 2. Generate notes and optional study materials
 
-Analyze every chunk of the Pill's saved sources before synthesizing notes. Vector search supports targeted chat rather than full-source coverage. Uploaded audio/video are transcribed; video frames are not sampled.
+Analyze every chunk of the Pill's saved sources before synthesizing notes. Caption and Whisper cues retain their original start and end times. Group adjacent cues for analysis and search, and use cue times to cite specific details in the notes. Vector search supports targeted chat rather than full-source coverage. For details shown only on screen, attach slides or screenshots alongside the video.
 
 ![Generate notes and optional study materials](diagrams/02-generate-materials.svg)
 

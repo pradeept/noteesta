@@ -1,5 +1,6 @@
 import asyncio
 from functools import lru_cache
+from pathlib import Path
 
 import boto3
 from botocore.client import BaseClient
@@ -50,6 +51,9 @@ class ObjectStorage:
     async def get_bytes(self, key: str) -> bytes:
         response = await asyncio.to_thread(self.client.get_object, Bucket=self.bucket, Key=key)
         return await asyncio.to_thread(response["Body"].read)
+
+    async def download_file(self, key: str, path: Path) -> None:
+        await asyncio.to_thread(self.client.download_file, self.bucket, key, str(path))
 
     async def delete_object(self, key: str) -> None:
         await asyncio.to_thread(

@@ -488,21 +488,28 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
                 aria-label="Sources in this Study Pill"
               >
                 {activePill.sources.map((source) => (
-                  <button
-                    type="button"
-                    key={source.id}
-                    onClick={() =>
-                      setCitation({
-                        sourceId: source.id,
-                        sourceName: source.name,
-                        locator: source.detail,
-                        excerpt: source.excerpt ?? 'This source is ready for grounded retrieval.',
-                      })
-                    }
-                  >
-                    <SourceIcon kind={source.kind} size={16} />
-                    <span>{source.name}</span>
-                  </button>
+                  <div key={source.id}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCitation({
+                          sourceId: source.id,
+                          sourceName: source.name,
+                          locator: source.detail,
+                          excerpt: source.excerpt ?? 'This source is ready for grounded retrieval.',
+                        })
+                      }
+                    >
+                      <SourceIcon kind={source.kind} size={16} />
+                      <span>{source.name}</span>
+                    </button>
+                    {source.kind === 'youtube' && source.captionTrackKind === 'ASR' ? (
+                      <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
+                        YouTube generated these captions automatically. Some words or details may be
+                        inaccurate.
+                      </p>
+                    ) : null}
+                  </div>
                 ))}
               </div>
               <StudyMaterials

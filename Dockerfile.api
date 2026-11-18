@@ -12,15 +12,16 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
-# Fail the build if OCR dependencies cannot load, before accepting uploads.
-RUN .venv/bin/python -c "import cv2; import onnxruntime; from rapidocr import RapidOCR"
+RUN uv sync --frozen --no-dev --no-install-project --no-cache
+# Keep the caption runtime and OCR native imports checked at build time.
+COPY --from=node:24-trixie-slim /usr/local/bin/node /usr/local/bin/node
+RUN node --version && .venv/bin/python -c "import cv2; import onnxruntime; from rapidocr import RapidOCR"
 
 COPY apps/api/main.py ./main.py
 COPY apps/api/src ./src
 COPY apps/api/workers ./workers
 COPY apps/api/evals/prompts ./evals/prompts
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-cache
 
 EXPOSE 8000
 CMD ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]

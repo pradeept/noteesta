@@ -315,7 +315,7 @@ Add entries under `Unreleased`, then move them to a dated heading when released.
 
 ## Current limits
 
-- YouTube sources need accessible English captions. Uploaded video is transcribed; visual frames and slides are not sampled.
+- YouTube imports support video watch links and share links. They need accessible English captions. Noteesta prefers regular captions and shows a warning when it uses automatic captions. Add slides or screenshots separately to cover details shown only on screen.
 - The source library supports downloading and deleting originals. Reusing a library file in a new Pill is not implemented; regeneration needs the originals to remain available.
 - ZIP exports contain `notes.md`, practice materials, and PNG visuals. Original uploads and interactive 3D models are excluded.
 - The public sample has no real uploads, backend calls, or saved progress. Use your self-hosted workspace for your own materials.

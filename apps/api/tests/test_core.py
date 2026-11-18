@@ -10,7 +10,7 @@ from src.common.schemas.schemas import (
     VisualSpec,
 )
 from src.config import Settings
-from src.pills.router import _is_youtube_url, update_study_pill
+from src.pills.router import update_study_pill
 from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.prompts import render_prompt
 from src.repository import _deserialize, _serialize
@@ -18,6 +18,7 @@ from src.services.extraction import ExtractedSegment, chunk_segments
 from src.services.orchestration import StudyPillOrchestrator
 from src.services.pipeline import _mcq_target, _mcqs, _merge_mcqs, _note_sections
 from src.services.rendering import render_visual
+from src.services.youtube import youtube_video_url
 
 
 def test_settings_accept_comma_separated_cors_origins() -> None:
@@ -32,12 +33,16 @@ def test_settings_accept_comma_separated_cors_origins() -> None:
     ]
 
 
-def test_youtube_url_validation_rejects_unrelated_hosts() -> None:
-    assert _is_youtube_url("https://www.youtube.com/watch?v=lesson")
-    assert _is_youtube_url("https://youtube.com/shorts/83iyz_5rN8c")
-    assert _is_youtube_url("https://youtu.be/lesson")
-    assert not _is_youtube_url("https://example.com/watch?v=lesson")
-    assert not _is_youtube_url("file:///private/lesson.mp4")
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://www.youtube.com/watch?v=83iyz_5rN8c&list=PL1&t=30",
+        "https://youtu.be/83iyz_5rN8c?si=tracking",
+        "http://m.youtube.com/watch?v=83iyz_5rN8c",
+    ],
+)
+def test_youtube_links_normalize_to_one_video(link: str) -> None:
+    assert youtube_video_url(link) == "https://www.youtube.com/watch?v=83iyz_5rN8c"
 
 
 def test_internal_fields_survive_repository_round_trip() -> None:

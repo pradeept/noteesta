@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -30,6 +29,7 @@ from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.repository import PillRepository
 from src.services.chat import answer_question
 from src.services.exporting import build_export
+from src.services.youtube import youtube_video_url
 from src.storage import get_storage
 from workers.tasks import process_pill_task
 
@@ -105,8 +105,11 @@ async def create_study_pill(
         parsed_materials.insert(0, MaterialKey.notes)
 
     normalized_youtube_url = youtube_url.strip()
-    if normalized_youtube_url and not _is_youtube_url(normalized_youtube_url):
-        raise HTTPException(status_code=422, detail="Enter a valid YouTube link.")
+    if normalized_youtube_url:
+        try:
+            normalized_youtube_url = youtube_video_url(normalized_youtube_url)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     await require_available_generation(generation, database, user_id)
 
     # Validate form fields before writing source objects so rejected requests do
@@ -379,14 +382,6 @@ def _source_kind(filename: str, content_type: str) -> str:
     if suffix == ".pdf":
         return "pdf"
     return "document"
-
-
-def _is_youtube_url(value: str) -> bool:
-    parsed = urlparse(value)
-    hostname = (parsed.hostname or "").lower()
-    return parsed.scheme in {"http", "https"} and (
-        hostname == "youtu.be" or hostname == "youtube.com" or hostname.endswith(".youtube.com")
-    )
 
 
 def _file_detail(size: int) -> str:
