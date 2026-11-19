@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const siteTitle = 'Noteesta — Open-source alternative to NotebookLM & Turbo AI';
 export const siteDescription =
-  'An open-source alternative to Google NotebookLM and Turbo AI. Turn PDFs, recordings, and notes into cited study materials. Self-host with Ollama or your API keys.';
+  'An open-source alternative to Google NotebookLM and Turbo AI. Turn YouTube videos, PDFs, and recordings into cited study materials. Self-host with Ollama or API keys.';
 
 // A new URL also lets sharing services fetch this card independently of the old poster.
 export const socialImage = {

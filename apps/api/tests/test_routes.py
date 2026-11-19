@@ -69,15 +69,15 @@ def api(monkeypatch):
         client.close()
 
 
-@pytest.mark.parametrize("source_kind", ["file", "youtube"])
+@pytest.mark.parametrize("source_kind", ["file", "youtube", "mixed"])
 def test_create_pill_persists_sources_and_queues_processing(api, source_kind):
     client, database, storage, queue = api
     form = {"title": "New pill", "subject": "Biology"}
     upload = {}
-    if source_kind == "file":
+    if source_kind in {"file", "mixed"}:
         upload["files"] = ("notes.txt", b"Cell biology", "text/plain")
-    else:
-        form["youtube_url"] = "https://youtube.com/watch?v=lesson"
+    if source_kind in {"youtube", "mixed"}:
+        form["youtube_url"] = "https://youtu.be/83iyz_5rN8c?list=PL1&t=30"
 
     response = client.post("/api/v1/pills", data=form, files=upload)
 
@@ -86,15 +86,41 @@ def test_create_pill_persists_sources_and_queues_processing(api, source_kind):
     assert "userId" not in body
     assert "objectKey" not in body["sources"][0]
     document = database.pills.documents[body["id"]]
-    source = document["sources"][0]
-    if source_kind == "file":
+    if upload:
         storage.put_bytes.assert_awaited_once()
-        assert source["object_key"] == storage.put_bytes.call_args.args[0]
+        assert document["sources"][0]["object_key"] == storage.put_bytes.call_args.args[0]
     else:
         storage.put_bytes.assert_not_awaited()
-        assert source["url"] == form["youtube_url"]
+    if "youtube_url" in form:
+        source = document["sources"][-1]
+        assert source["url"] == "https://www.youtube.com/watch?v=83iyz_5rN8c"
         assert source["original_available"] is False
     queue.assert_called_once_with(body["id"])
+
+
+@pytest.mark.parametrize(
+    ("link", "message"),
+    [
+        ("https://youtube.com/shorts/83iyz_5rN8c", "YouTube Shorts"),
+        ("https://www.youtube.com/playlist?list=PL1", "Enter a YouTube video link"),
+        ("https://youtube.com.evil.example/watch?v=83iyz_5rN8c", "Enter a YouTube video link"),
+        ("https://youtube.com/watch?v=bad", "Enter a YouTube video link"),
+    ],
+)
+def test_invalid_youtube_links_are_rejected_before_upload_or_queue(api, link, message):
+    client, database, storage, queue = api
+
+    response = client.post(
+        "/api/v1/pills",
+        data={"title": "New pill", "subject": "Biology", "youtube_url": link},
+        files={"files": ("notes.txt", b"Cell biology", "text/plain")},
+    )
+
+    assert response.status_code == 422
+    assert message in response.json()["detail"]
+    assert list(database.pills.documents) == ["pill-1"]
+    storage.put_bytes.assert_not_awaited()
+    queue.assert_not_called()
 
 
 @pytest.mark.parametrize("collection_owner", [None, "student-2"])

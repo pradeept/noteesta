@@ -16,6 +16,7 @@ class ApiModel(BaseModel):
 
 Provider = Literal["ollama", "openai", "anthropic", "gemini", "huggingface", "deepseek", "zai"]
 HostedProvider = Literal["openai", "anthropic", "gemini", "huggingface", "deepseek", "zai"]
+CaptionTrackKind = Literal["standard", "ASR"]
 
 
 class GenerationSelection(ApiModel):
@@ -46,6 +47,7 @@ class Source(ApiModel):
     detail: str
     status: Literal["uploaded", "processing", "ready", "failed"] = "uploaded"
     excerpt: str | None = None
+    caption_track_kind: CaptionTrackKind | None = None
     object_key: str | None = Field(default=None, exclude=True)
     url: str | None = Field(default=None, exclude=True)
     original_available: bool = True

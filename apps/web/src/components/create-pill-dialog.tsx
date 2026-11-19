@@ -12,6 +12,17 @@ import {
 import { motion, useReducedMotion } from 'motion/react';
 import type { CreatePillInput, MaterialKey } from '@/lib/types';
 
+const youtubeHosts = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);
+
+function isYouTubeShortsLink(value: string) {
+  try {
+    const url = new URL(value);
+    return youtubeHosts.has(url.hostname) && /^\/shorts(?:\/|$)/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 const optionalMaterials: Array<{ value: MaterialKey; label: string; description: string }> = [
   { value: 'flashcards', label: 'Flashcards', description: 'Short recall prompts' },
   { value: 'mcqs', label: 'Multiple choice', description: 'Questions with explanations' },
@@ -47,6 +58,7 @@ export function CreatePillDialog({
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const reduce = useReducedMotion();
+  const isShortsLink = isYouTubeShortsLink(youtubeUrl);
 
   function addFiles(incoming: File[]) {
     setFiles((current) => [
@@ -81,6 +93,7 @@ export function CreatePillDialog({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isShortsLink) return;
     if (!files.length && !youtubeUrl.trim()) {
       setError('Add at least one file or a YouTube link.');
       return;
@@ -312,11 +325,26 @@ export function CreatePillDialog({
                       id="youtube-url"
                       type="url"
                       value={youtubeUrl}
-                      onChange={(event) => setYoutubeUrl(event.target.value)}
+                      aria-describedby={isShortsLink ? 'youtube-shorts-error' : 'youtube-link-help'}
+                      aria-invalid={isShortsLink}
+                      onChange={(event) => {
+                        setYoutubeUrl(event.target.value);
+                        setError('');
+                      }}
                       placeholder="https://youtube.com/watch?v=..."
                     />
                   </span>
                 </label>
+                {isShortsLink ? (
+                  <p className="form-error" id="youtube-shorts-error" role="alert">
+                    YouTube Shorts aren’t supported. Add a regular YouTube video link.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-muted" id="youtube-link-help">
+                    Noteesta uses English captions. Attach slides or screenshots for details shown
+                    only on screen.
+                  </p>
+                )}
               </div>
             </section>
             <section className="form-section min-w-0 [&_+_.form-section]:[border-top:1px_solid_var(--line)] [&_+_.form-section]:pt-[26px] [&_h3]:[margin:0_0_16px] [&_h3]:text-[16px] [&_h3]:tracking-[-0.015em] [&_h3]:font-[650]">
@@ -404,12 +432,12 @@ export function CreatePillDialog({
             {files.length
               ? `${files.length} ${files.length === 1 ? 'file' : 'files'} selected`
               : 'Add a file or a YouTube link to begin.'}
-            {youtubeUrl.trim() ? ' • YouTube lesson added' : ''}
+            {youtubeUrl.trim() && !isShortsLink ? ' • YouTube lesson added' : ''}
           </p>
           <button
             type="submit"
             className="primary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold shadow-none"
-            disabled={submitting}
+            disabled={submitting || isShortsLink}
           >
             <SparkleIcon size={18} weight="duotone" />
             {submitting ? 'Starting...' : 'Create Study Pill'}

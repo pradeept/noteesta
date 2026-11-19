@@ -48,6 +48,7 @@ export interface Source {
   detail: string;
   status: 'uploaded' | 'processing' | 'ready' | 'failed';
   originalAvailable?: boolean;
+  captionTrackKind?: 'standard' | 'ASR' | null;
   excerpt?: string;
 }
 

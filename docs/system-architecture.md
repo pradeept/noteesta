@@ -14,7 +14,6 @@ This page describes the current implementation. See the [backend guide](backend.
 | S3-compatible object storage | Original uploads, canonical extracted JSON, and generated PNG visuals; local Compose uses SeaweedFS |
 | Docling | Parse documents/images with OCR and retain canonical JSON; extracted Markdown sections supply generation text |
 | faster-whisper | Transcribe uploaded audio/video with the configured Whisper model, default `small`, retaining timestamps |
-| yt-dlp | Fetch accessible English YouTube captions, including automatic captions |
 | Generation adapters | Use the saved per-Pill choice for chunk analysis, notes, selected practice materials, visual specifications, and grounded chat |
 | Ollama embeddings | Use `OLLAMA_EMBEDDING_MODEL`, default `nomic-embed-text`, for source indexing and chat queries regardless of generation provider |
 | Interactive 3D | Use the Pill’s resolved provider/model for both a cited spatial brief and bounded Three.js scene code |
@@ -28,7 +27,7 @@ TanStack Query owns workspace server data with user-scoped keys, targeted mutati
 ## Processing sequence
 
 1. FastAPI validates multipart creation fields, the selected generation option, upload sizes, and the optional YouTube URL. It uploads original files, saves the Pill with its sources, settings, and model selection, and queues `process_pill_task` with the Pill ID. The response is HTTP 202.
-2. The worker loads that Pill and extracts each source. Plain-text files are decoded directly; documents/images use Docling; audio/video use transcription; YouTube uses captions. Canonical extraction JSON is stored in object storage.
+2. The worker loads that Pill and extracts its sources, including supported files and YouTube videos. Canonical extraction JSON is stored in object storage.
 3. Every extracted text chunk is analyzed with its source ID, name, and locator. This runs sequentially. The pipeline retains the complete set of analyses for synthesis.
 4. Chunks are embedded and indexed in MongoDB before note synthesis. The vector prefilters use `user_id` and `pill_id`. Full-source synthesis uses all chunk analyses rather than a top-k retrieval result.
 5. The selected provider synthesizes cited notes and then selected flashcards, MCQs, true-or-false questions, and roadmap items. MCQ generation targets two or five questions based on note depth and allows up to two supplemental requests.
@@ -52,10 +51,10 @@ Each worker task runs its asynchronous database work on one event loop and close
 - Email/password and Google authenticate verified accounts. FastAPI validates access JWTs against active MongoDB sessions; refresh JWTs rotate in HttpOnly cookies. See the [authentication guide](authentication.md).
 - The library lists attached sources and supports original-file download/deletion. Selecting an existing library file for a new Pill is not implemented.
 - Video processing currently covers the audio transcript. Frame sampling and visual slide analysis remain planned.
-- YouTube ingestion requires accessible English captions; it does not fall back to downloading/transcribing video.
+- YouTube videos can be added via watch or share links. YouTube Shorts are unsupported.
 - Canonical extraction JSON, original files, and PNGs are in object storage. Generated structured notes are in MongoDB; ZIP export is built during the HTTP request.
 - Embedding/indexing is sequential with source analysis and synthesis, rather than a parallel background branch.
-- Source locators include transcript/caption timestamps and Docling-derived section labels. Citations show saved excerpts; opening every original at an exact page or timestamp is not implemented.
+- Source locators include media timestamps and Docling-derived section labels. Citations show saved excerpts; opening every original at an exact page or timestamp is not implemented.
 - MongoDB Vector Search is an Atlas deployment prerequisite. The README documents the default 768-dimensional embedding index; hardware, concurrency sizing, and production storage deployment remain deployment decisions.
 
 The HTML prototypes and original diagram gallery remain design artifacts. Their proposed flows include capabilities beyond this implementation.

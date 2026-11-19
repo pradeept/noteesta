@@ -13,11 +13,11 @@
   </p>
 </div>
 
-[Watch the 43-second Noteesta video](https://noteesta.com/media/noteesta-intro.mp4)
+[Watch the 43-second Noteesta intro video](apps/site/public/media/noteesta-intro.mp4)
 
 ## What is Noteesta?
 
-A lesson can be spread across a recording, slides, handwritten notes, and a video. Noteesta brings those sources into a **Study Pill**: a structured explanation you can read, check against its sources, edit, and revisit when studying.
+A lesson can be spread across a recording, slides, handwritten notes, and a YouTube video. Noteesta brings those sources into a **Study Pill**: a structured explanation you can read, check against its sources, edit, and revisit when studying.
 
 Self-host the workspace for your own materials, or [explore the interactive sample](https://noteesta.com/app) without an account. The public sample uses bundled content; uploads and preparation are simulated.
 
@@ -25,7 +25,7 @@ Self-host the workspace for your own materials, or [explore the interactive samp
 
 | Feature                   | What you can do                                                                                                   |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Source-linked notes**   | Combine documents, images, audio, video, and accessible YouTube captions into notes with references and excerpts. |
+| **Source-linked notes**   | Combine documents, images, audio, video files, and YouTube videos into notes with references and excerpts.         |
 | **In-place editing**      | Format and highlight notes, save automatically, and preview or restore earlier versions.                          |
 | **Practice**              | Choose flashcards, multiple-choice and true-or-false questions, and a study roadmap.                              |
 | **Visual learning**       | Explore flow visuals and optional interactive 3D concept models.                                                  |
@@ -315,7 +315,7 @@ Add entries under `Unreleased`, then move them to a dated heading when released.
 
 ## Current limits
 
-- YouTube sources need accessible English captions. Uploaded video is transcribed; visual frames and slides are not sampled.
+- Paste a YouTube watch or share link to add a video to a Study Pill. YouTube Shorts are unsupported.
 - The source library supports downloading and deleting originals. Reusing a library file in a new Pill is not implemented; regeneration needs the originals to remain available.
 - ZIP exports contain `notes.md`, practice materials, and PNG visuals. Original uploads and interactive 3D models are excluded.
 - The public sample has no real uploads, backend calls, or saved progress. Use your self-hosted workspace for your own materials.

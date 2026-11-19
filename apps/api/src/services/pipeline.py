@@ -81,6 +81,7 @@ async def process_pill(pill_id: str) -> None:
         analyses: list[dict[str, Any]] = []
         chunk_documents: list[Document] = []
         source_lookup = {source.id: source for source in pill.sources}
+        caption_track_kinds = {}
 
         for source_index, source in enumerate(pill.sources):
             source.status = "processing"
@@ -100,6 +101,8 @@ async def process_pill(pill_id: str) -> None:
                 source.kind,
             )
             extracted = await extract_source(source, storage)
+            if extracted.caption_track_kind is not None:
+                caption_track_kinds[source.id] = extracted.caption_track_kind
             logger.info(
                 "Pill %s: extracted %d segment(s) from %s",
                 pill_id,
@@ -142,8 +145,13 @@ async def process_pill(pill_id: str) -> None:
                     source_id=source.id,
                     source_name=source.name,
                     locator=chunk.locator,
-                    source_text=chunk.text,
+                    source_text=chunk.analysis_text,
                 )
+                if chunk.cues:
+                    cue_locators = {chunk.locator, *(cue.locator for cue in chunk.cues)}
+                    for claim in result.get("claims", []):
+                        if claim.get("locator") not in cue_locators:
+                            claim["locator"] = chunk.locator
                 result["sourceId"] = source.id
                 result["sourceName"] = source.name
                 result["locator"] = chunk.locator
@@ -293,6 +301,8 @@ async def process_pill(pill_id: str) -> None:
         snapshot = notes_repository.snapshot(
             pill, generated_content(artifact), previous_notes, "generated"
         )
+        for source_id, kind in caption_track_kinds.items():
+            source_lookup[source_id].caption_track_kind = kind
         await notes_repository.commit(
             pill,
             snapshot,

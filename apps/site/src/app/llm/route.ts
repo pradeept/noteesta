@@ -30,7 +30,7 @@ A student may have a lecture recording, a PDF of slides, and photos of handwritt
 
 ## Available in the current product
 
-- Study Pills from supported recordings, documents, images, video, and YouTube links with accessible captions.
+- Study Pills from recordings, documents, images, video files, and YouTube videos.
 - Structured notes with source references and controlled visuals such as flows.
 - In-place rich-text editing, highlighting, autosave, and version history with preview and restore.
 - Bring your own key (BYOK) for OpenAI, Anthropic, Google Gemini, Hugging Face Inference Providers, DeepSeek, and Z.ai, alongside Ollama. Personal keys are encrypted at rest in Settings. Choose an account default model or override it for a Pill. Ollama supplies embeddings with every provider.
@@ -67,7 +67,7 @@ Flashcard: ${artifact?.flashcards[0]?.front ?? ''} Answer: ${artifact?.flashcard
 
 ## Limits and availability
 
-The public demo is an interactive simulation using bundled example data. Upload and preparation are mocked; material choices and quiz answers last only for the current visit. It has no account, real upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube support requires accessible English captions. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
+The public demo is an interactive simulation using bundled example data. Upload and preparation are mocked; material choices and quiz answers last only for the current visit. It has no account, real upload, chat, backend request, or saved user content. The current development app is not a public service. YouTube Shorts are unsupported. Uploaded video is transcribed without visual frame analysis. The source library supports downloading and deleting attached originals; reusing a library file in a new Pill is not implemented. Portable ZIP exports include Markdown and PNG visuals, and exclude original files and interactive 3D scenes. Notes and visuals should be checked against their references when accuracy matters.
 
 ## Product direction
 

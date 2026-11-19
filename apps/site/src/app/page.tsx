@@ -40,7 +40,7 @@ const structuredData = {
       isAccessibleForFree: true,
       codeRepository: repository,
       featureList: [
-        'Source-linked notes from PDFs, recordings, and handwritten notes',
+        'Source-linked notes from YouTube videos, PDFs, recordings, and handwritten notes',
         'Flashcards, quizzes, and study roadmaps',
         'Interactive visuals and optional 3D models',
         'Self-hosting with Ollama or personal provider keys',
@@ -94,9 +94,10 @@ export default function Home() {
               <em>what you study.</em>
             </h1>
             <p className="marketing-lead">
-              An open-source alternative to Turbo AI and Google NotebookLM. Turn recordings, PDFs,
-              and handwritten notes into a Study Pill: clear explanations, sources you can check,
-              and practice when you need it. Self-host with local Ollama or bring your own API keys.
+              An open-source alternative to Turbo AI and Google NotebookLM. Turn YouTube videos,
+              recordings, PDFs, and handwritten notes into a Study Pill with clear explanations,
+              sources you can check, and practice when you need it. Self-host with local Ollama or
+              bring your own API keys.
             </p>
             <div className="marketing-hero-actions">
               <a
@@ -216,8 +217,8 @@ export default function Home() {
               <div>
                 <h3>Gather the pieces</h3>
                 <p>
-                  Choose the recording, slides, or notes you want to study together. The Study Pill
-                  stays tied to those sources.
+                  Add a YouTube video or upload the recordings, slides, and notes you want to study
+                  together. The Study Pill stays tied to those sources.
                 </p>
               </div>
             </article>

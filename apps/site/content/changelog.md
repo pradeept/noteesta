@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add YouTube videos to Study Pills by pasting a video link.
 - Product-focused social preview images and structured data for search engines.
 - A music-only product film showing the interactive Study Pill sample.
 - A changelog on the landing page, maintained in Markdown.
