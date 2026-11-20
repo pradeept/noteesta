@@ -44,6 +44,7 @@ class StudyPillCreate(ApiModel):
     target_exam_date: Annotated[str, Form()] = ""
     study_hours_per_day: Annotated[str, Form()] = ""
     youtube_url: Annotated[str, Form()] = ""
+    website_urls: Annotated[str, Form()] = "[]"
     generation_provider: Annotated[str, Form()] = "ollama"
     generation_model: Annotated[str, Form()] = ""
     files: Annotated[list[UploadFile] | None, File()] = None

@@ -8,15 +8,18 @@ import shutil
 import tempfile
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from functools import lru_cache
 from html import unescape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from botocore.exceptions import ClientError
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.common.schemas.schemas import CaptionTrackKind, Source
 from src.config import get_settings
+from src.services.web_sources import WebImportError, extract_page, fetch_page
 from src.services.youtube import youtube_video_url
 from src.storage import ObjectStorage
 
@@ -51,6 +54,7 @@ class ExtractedSegment:
     locator: str
     text: str
     cues: tuple[TranscriptCue, ...] = ()
+    preserve_formatting: bool = False
 
     @property
     def analysis_text(self) -> str:
@@ -70,6 +74,56 @@ async def extract_source(source: Source, storage: ObjectStorage) -> ExtractedSou
     """Extract a source into canonical data and provenance-preserving text segments."""
     if source.kind == "youtube":
         return await asyncio.to_thread(_extract_youtube, source)
+    if source.kind == "website":
+        if source.snapshot_key:
+            try:
+                canonical = json.loads(await storage.get_bytes(source.snapshot_key))
+            except ClientError as error:
+                if error.response["Error"]["Code"] not in {"NoSuchKey", "404", "NotFound"}:
+                    raise
+                raise WebImportError(
+                    "The saved page text is missing. Add this URL to a new Pill to import it again."
+                ) from error
+            except (ValueError, UnicodeError) as error:
+                raise WebImportError("The saved page text could not be read.") from error
+        else:
+            if not source.url:
+                raise WebImportError("This website source is missing its URL.")
+            page = await fetch_page(source.url)
+            canonical = await asyncio.to_thread(extract_page, page)
+        if (
+            not isinstance(canonical, dict)
+            or canonical.get("type") != "website"
+            or canonical.get("version") != 1
+            or not isinstance(canonical.get("segments"), list)
+            or not canonical["segments"]
+            or any(
+                not isinstance(canonical.get(key), str) or not canonical[key]
+                for key in ("title", "url", "fetched_at")
+            )
+            or any(
+                not isinstance(segment, dict)
+                or any(
+                    not isinstance(segment.get(key), str) or not segment[key]
+                    for key in ("locator", "text")
+                )
+                for segment in canonical["segments"]
+            )
+        ):
+            raise WebImportError("The saved page text has an unsupported format.")
+        try:
+            datetime.fromisoformat(canonical["fetched_at"])
+        except ValueError as error:
+            raise WebImportError("The saved page import date could not be read.") from error
+        return ExtractedSource(
+            canonical=canonical,
+            segments=[
+                ExtractedSegment(
+                    locator=segment["locator"], text=segment["text"], preserve_formatting=True
+                )
+                for segment in canonical["segments"]
+            ],
+        )
     if not source.object_key:
         raise ValueError(f"Source {source.name} has no stored object")
     suffix = Path(source.name).suffix.lower()
@@ -104,11 +158,19 @@ def chunk_segments(segments: list[ExtractedSegment]) -> list[ExtractedSegment]:
 
     chunks: list[ExtractedSegment] = []
     for segment in segments:
-        text = re.sub(r"\s+", " ", segment.text).strip()
+        text = (
+            segment.text.strip()
+            if segment.preserve_formatting
+            else re.sub(r"\s+", " ", segment.text).strip()
+        )
         if not text:
             continue
         chunks.extend(
-            ExtractedSegment(locator=segment.locator, text=chunk)
+            ExtractedSegment(
+                locator=segment.locator,
+                text=chunk,
+                preserve_formatting=segment.preserve_formatting,
+            )
             for chunk in splitter.split_text(text)
             if chunk.strip()
         )

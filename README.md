@@ -25,7 +25,7 @@ Self-host the workspace for your own materials, or [explore the interactive samp
 
 | Feature                   | What you can do                                                                                                   |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Source-linked notes**   | Combine documents, images, audio, video files, and YouTube videos into notes with references and excerpts.         |
+| **Source-linked notes**   | Combine documents, images, audio, video files, YouTube videos, and public website pages into notes with references and excerpts. |
 | **In-place editing**      | Format and highlight notes, save automatically, and preview or restore earlier versions.                          |
 | **Practice**              | Choose flashcards, multiple-choice and true-or-false questions, and a study roadmap.                              |
 | **Visual learning**       | Explore flow visuals and optional interactive 3D concept models.                                                  |
@@ -264,6 +264,7 @@ Missing personal keys fall back to the configured Ollama generation model. Inval
 | [Backend](docs/backend.md)                    | Python layout, API routes, and packaging                                   |
 | [Authentication](docs/authentication.md)      | Email verification, Google, Resend, sessions, and local setup              |
 | [Note editing](docs/note-editing.md)          | Autosave, formatting, citations, and version history                       |
+| [Website sources](docs/website-sources.md) | Page selection, saved text, failed imports, and website limits |
 | [Model evaluations](apps/api/evals/README.md) | Live preset comparisons and evaluation credentials                         |
 | [Documentation index](docs/README.md)         | Design diagrams and additional project references                          |
 
@@ -316,6 +317,7 @@ Add entries under `Unreleased`, then move them to a dated heading when released.
 ## Current limits
 
 - Paste a YouTube watch or share link to add a video to a Study Pill. YouTube Shorts are unsupported.
+- Paste public HTML links and review directly linked pages on the same website. Website imports do not run JavaScript or sign in; regeneration reuses saved text.
 - The source library supports downloading and deleting originals. Reusing a library file in a new Pill is not implemented; regeneration needs the originals to remain available.
 - ZIP exports contain `notes.md`, practice materials, and PNG visuals. Original uploads and interactive 3D models are excluded.
 - The public sample has no real uploads, backend calls, or saved progress. Use your self-hosted workspace for your own materials.

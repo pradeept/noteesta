@@ -32,7 +32,17 @@ export interface AISettings {
   models: GenerationOption[];
 }
 
-export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube';
+export type SourceKind = 'audio' | 'video' | 'pdf' | 'document' | 'image' | 'youtube' | 'website';
+
+export interface WebsitePage {
+  url: string;
+  title: string;
+}
+
+export interface WebsiteDiscovery extends WebsitePage {
+  links: WebsitePage[];
+  capped: boolean;
+}
 
 export interface Citation {
   sourceId: string;
@@ -49,6 +59,9 @@ export interface Source {
   status: 'uploaded' | 'processing' | 'ready' | 'failed';
   originalAvailable?: boolean;
   captionTrackKind?: 'standard' | 'ASR' | null;
+  websiteUrl?: string | null;
+  fetchedAt?: string | null;
+  error?: string | null;
   excerpt?: string;
 }
 
@@ -73,6 +86,9 @@ export interface LibraryEntry {
   detail: string;
   originalAvailable: boolean;
   youtubeUrl?: string | null;
+  websiteUrl?: string | null;
+  fetchedAt?: string | null;
+  error?: string | null;
   pills: LibraryPillReference[];
 }
 
@@ -215,6 +231,7 @@ export interface CreatePillInput {
   title: string;
   subject: string;
   youtubeUrl?: string;
+  websiteUrls?: string[];
   files: File[];
   selectedMaterials: MaterialKey[];
   detailLevel: 'concise' | 'balanced' | 'detailed';

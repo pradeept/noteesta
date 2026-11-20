@@ -18,6 +18,7 @@ from src.models.router import router as models_router
 from src.pills.notes import router as notes_router
 from src.pills.router import pills_router
 from src.settings.router import router as settings_router
+from src.sources.router import router as sources_router
 from src.storage import get_storage
 
 
@@ -80,6 +81,7 @@ app.include_router(collections_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
 app.include_router(settings_router, prefix="/api/v1")
+app.include_router(sources_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/config")

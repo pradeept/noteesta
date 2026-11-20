@@ -26,8 +26,8 @@ TanStack Query owns workspace server data with user-scoped keys, targeted mutati
 
 ## Processing sequence
 
-1. FastAPI validates multipart creation fields, the selected generation option, upload sizes, and the optional YouTube URL. It uploads original files, saves the Pill with its sources, settings, and model selection, and queues `process_pill_task` with the Pill ID. The response is HTTP 202.
-2. The worker loads that Pill and extracts its sources, including supported files and YouTube videos. Canonical extraction JSON is stored in object storage.
+1. FastAPI validates multipart creation fields, the selected generation option, upload sizes, the optional YouTube URL, and website URLs. Website page discovery is a separate workspace-scoped endpoint used by the inline page picker. Creation uploads original files, saves the Pill with its selected sources, settings, and model selection, and queues `process_pill_task` with the Pill ID. The response is HTTP 202.
+2. The worker loads that Pill and extracts its sources, including supported files, YouTube videos, and public HTML pages. Canonical extraction JSON is stored in object storage. Website imports use HTTPX with public-address connection pinning and local Trafilatura extraction; successful website snapshots are reused on regeneration. Website fetch/extraction failures are recorded per source and skipped if other sources remain readable.
 3. Every extracted text chunk is analyzed with its source ID, name, and locator. This runs sequentially. The pipeline retains the complete set of analyses for synthesis.
 4. Chunks are embedded and indexed in MongoDB before note synthesis. The vector prefilters use `user_id` and `pill_id`. Full-source synthesis uses all chunk analyses rather than a top-k retrieval result.
 5. The selected provider synthesizes cited notes and then selected flashcards, MCQs, true-or-false questions, and roadmap items. MCQ generation targets two or five questions based on note depth and allows up to two supplemental requests.
@@ -52,6 +52,7 @@ Each worker task runs its asynchronous database work on one event loop and close
 - The library lists attached sources and supports original-file download/deletion. Selecting an existing library file for a new Pill is not implemented.
 - Video processing currently covers the audio transcript. Frame sampling and visual slide analysis remain planned.
 - YouTube videos can be added via watch or share links. YouTube Shorts are unsupported.
+- Public HTML website pages can be selected from direct same-host links and combined with other sources. Browser rendering and authenticated page imports are unsupported. See [website sources](website-sources.md).
 - Canonical extraction JSON, original files, and PNGs are in object storage. Generated structured notes are in MongoDB; ZIP export is built during the HTTP request.
 - Embedding/indexing is sequential with source analysis and synthesis, rather than a parallel background branch.
 - Source locators include media timestamps and Docling-derived section labels. Citations show saved excerpts; opening every original at an exact page or timestamp is not implemented.

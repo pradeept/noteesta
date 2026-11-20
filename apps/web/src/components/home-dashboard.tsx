@@ -312,7 +312,8 @@ export function HomeDashboard() {
               {sourceError ? <p className="home-panel-empty">{sourceError}</p> : null}
               {!sourceError && !sources.length ? (
                 <p className="home-panel-empty">
-                  Files and YouTube links attached to your Study Pills will appear here.
+                  Files, YouTube links, and website pages attached to your Study Pills will appear
+                  here.
                 </p>
               ) : null}
               {sources.slice(0, 4).map((source) => (

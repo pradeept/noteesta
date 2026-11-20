@@ -29,6 +29,7 @@ from src.pills.schemas import StudyPill, StudyPillUpdate
 from src.repository import PillRepository
 from src.services.chat import answer_question
 from src.services.exporting import build_export
+from src.services.web_sources import WebImportError, website_url
 from src.services.youtube import youtube_video_url
 from src.storage import get_storage
 from workers.tasks import process_pill_task
@@ -67,6 +68,7 @@ async def create_study_pill(
     target_exam_date: Annotated[str, Form()] = "",
     study_hours_per_day: Annotated[str, Form()] = "",
     youtube_url: Annotated[str, Form()] = "",
+    website_urls: Annotated[str, Form()] = "[]",
     generation_provider: Annotated[str, Form()] = "",
     generation_model: Annotated[str, Form()] = "",
     files: Annotated[list[UploadFile] | None, File()] = None,
@@ -110,6 +112,19 @@ async def create_study_pill(
             normalized_youtube_url = youtube_video_url(normalized_youtube_url)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+    try:
+        web_values = json.loads(website_urls)
+        if not isinstance(web_values, list) or any(not isinstance(url, str) for url in web_values):
+            raise WebImportError("Website URLs must be a JSON array of URL strings.")
+        if len(web_values) > settings.web_max_pages:
+            raise WebImportError(f"Choose at most {settings.web_max_pages} website pages per Pill.")
+        normalized_web_urls = list(dict.fromkeys(website_url(url) for url in web_values))
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if not files and not normalized_youtube_url and not normalized_web_urls:
+        raise HTTPException(
+            status_code=422, detail="Add at least one file, YouTube link, or website page."
+        )
     await require_available_generation(generation, database, user_id)
 
     # Validate form fields before writing source objects so rejected requests do
@@ -158,8 +173,17 @@ async def create_study_pill(
                 original_available=False,
             )
         )
-    if not sources:
-        raise HTTPException(status_code=422, detail="Add at least one file or a YouTube link.")
+    sources.extend(
+        Source(
+            id=str(uuid4()),
+            name=url,
+            kind="website",
+            detail="Website page",
+            url=url,
+            original_available=False,
+        )
+        for url in normalized_web_urls
+    )
 
     pill = StudyPill(
         id=pill_id,

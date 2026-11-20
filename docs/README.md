@@ -4,6 +4,7 @@
 - [Self-hosting, MongoDB vector index, and deployment settings](self-hosting.md)
 - [Backend domain layout, API routes, and verification](backend.md)
 - [Current system architecture](system-architecture.md)
+- [Website sources, page selection, and saved imports](website-sources.md)
 - [Current interactions and original design diagrams](use-cases.md)
 - [Open the HTML prototype gallery](prototypes/index.html)
 - [Open the original design diagram gallery](diagrams.html)

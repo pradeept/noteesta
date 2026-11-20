@@ -43,7 +43,8 @@ The local base URL is `http://localhost:8000/api/v1`. FastAPI serves interactive
 | GET | `/healthz` | MongoDB, object-storage, and Celery worker status |
 | GET | `/models` | Generation choices, availability, and unavailability reasons |
 | GET | `/pills` | List the current user's Pills |
-| POST | `/pills` | Accept multipart files/settings and an optional YouTube URL; queue processing; return 202 |
+| POST | `/pills` | Accept multipart files/settings, an optional YouTube URL, and JSON-encoded `website_urls`; queue processing; return 202 |
+| POST | `/sources/web/discover` | Accept `{ "url": "https://…" }`; return resolved `url`, `title`, `links` (`url`/`title`), and `capped`; enforce workspace-user rate limit |
 | GET | `/pills/{pill_id}` | Load a Pill, progress, and saved artifacts |
 | PATCH | `/pills/{pill_id}` | Update title, description, tags, or collection membership |
 | PATCH | `/pills/bulk/collection` | Move up to 100 Pill IDs to an owned collection, or remove membership |
@@ -62,9 +63,9 @@ The local base URL is `http://localhost:8000/api/v1`. FastAPI serves interactive
 
 Pill, collection, library, and model requests require `Authorization: Bearer <access token>`. The API validates the JWT and its active session, then scopes resources by the authenticated user ID. `X-User-Id` is no longer accepted as identity. `/healthz` remains public. See [authentication](authentication.md) for the complete auth API, configuration, and session lifecycle.
 
-JSON uses camelCase names such as `collectionId`, `selectedMaterials`, and `originalAvailable`. Multipart creation fields use snake_case names such as `selected_materials`, `youtube_url`, `generation_provider`, and `generation_model`; `selected_materials` is a JSON-encoded array. MongoDB writes use snake_case. Internal user IDs, object keys, source URLs, and processing settings are excluded from Pill JSON; library entries expose YouTube links separately.
+JSON uses camelCase names such as `collectionId`, `selectedMaterials`, and `originalAvailable`. Multipart creation fields use snake_case names such as `selected_materials`, `youtube_url`, `website_urls`, `generation_provider`, and `generation_model`; `selected_materials` and optional `website_urls` (default `[]`) are JSON-encoded arrays. MongoDB writes use snake_case. Internal user IDs, object/snapshot keys, and processing settings are excluded from Pill JSON. Website sources expose `websiteUrl`, `fetchedAt`, and a nullable source-level `error`; library entries expose `websiteUrl` and `youtubeUrl` separately.
 
-Collection assignment validates ownership. Set `collectionId` to `null` to clear membership. Collection names must be nonempty after trimming and unique per user. YouTube library entries are links, so file download/deletion requests return 409. A deleted original returns 410 for subsequent download/deletion requests.
+Collection assignment validates ownership. Set `collectionId` to `null` to clear membership. Collection names must be nonempty after trimming and unique per user. YouTube and website library entries are links, so file download/deletion requests return 409. A deleted original returns 410 for subsequent download/deletion requests. Website discovery requires the same workspace identity as Pill creation and returns 422 for invalid/inaccessible pages, 429 for rate limits, and 503 if its rate-limit store is unavailable. See [website sources](website-sources.md) for extraction and snapshot behavior.
 
 ## Startup and health
 
