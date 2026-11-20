@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     email_from: str = "Noteesta <accounts@noteesta.com>"
     local_email_directory: str = ".local/emails"
     max_upload_bytes: int = 100 * 1024 * 1024
+    web_max_pages: int = Field(default=20, ge=1, le=100)
+    web_max_discovered_links: int = Field(default=100, ge=1, le=1000)
+    web_max_html_bytes: int = Field(default=5 * 1024 * 1024, ge=1024)
+    web_max_text_characters: int = Field(default=200_000, ge=1000)
+    web_max_redirects: int = Field(default=5, ge=0, le=10)
+    web_fetch_timeout_seconds: float = Field(default=20, gt=0, le=120)
+    web_discovery_rate_per_minute: int = Field(default=10, ge=1)
 
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_database: str = "noteesta"

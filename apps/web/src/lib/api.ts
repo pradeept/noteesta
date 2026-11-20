@@ -13,6 +13,7 @@ import type {
   NoteVersion,
   NoteDocument,
   NoteHistory,
+  WebsiteDiscovery,
 } from '@/lib/types';
 import { authenticatedFetch, sessionEpoch } from '@/lib/session';
 
@@ -159,6 +160,7 @@ export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   form.set('title', input.title);
   form.set('subject', input.subject);
   form.set('youtube_url', input.youtubeUrl ?? '');
+  form.set('website_urls', JSON.stringify(input.websiteUrls ?? []));
   form.set('selected_materials', JSON.stringify(input.selectedMaterials));
   form.set('detail_level', input.detailLevel);
   form.set('learner_level', input.learnerLevel);
@@ -167,6 +169,15 @@ export async function createPill(input: CreatePillInput): Promise<StudyPill> {
   input.files.forEach((file) => form.append('files', file));
 
   return request<StudyPill>('/pills', { method: 'POST', body: form });
+}
+
+export function discoverWebsite(url: string, signal?: AbortSignal): Promise<WebsiteDiscovery> {
+  return request('/sources/web/discover', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
 }
 
 export async function listGenerationOptions(signal?: AbortSignal): Promise<GenerationOption[]> {

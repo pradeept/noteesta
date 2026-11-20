@@ -49,6 +49,7 @@ import type {
   Collection,
   CreatePillInput,
   StudyPill,
+  Source,
   VisualSpec,
 } from '@/lib/types';
 
@@ -257,7 +258,7 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
           <p>
             {hasPills
               ? 'This Study Pill is no longer in your library. Return home to choose another one.'
-              : 'Add a recording, document, image, video, or YouTube link. Noteesta will keep every answer tied to your sources.'}
+              : 'Add a recording, document, image, video, YouTube link, or website page. Noteesta will keep every answer tied to your sources.'}
           </p>
           <div className="empty-actions flex flex-wrap justify-center gap-3 items-center mt-4 [&_.primary-button]:mt-[0]">
             <Link
@@ -496,13 +497,31 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
                           sourceId: source.id,
                           sourceName: source.name,
                           locator: source.detail,
-                          excerpt: source.excerpt ?? 'This source is ready for grounded retrieval.',
+                          excerpt:
+                            source.error ??
+                            source.excerpt ??
+                            'This source is ready for grounded retrieval.',
                         })
                       }
                     >
                       <SourceIcon kind={source.kind} size={16} />
                       <span>{source.name}</span>
                     </button>
+                    {source.kind === 'website' ? (
+                      <>
+                        <p className="mt-1 text-xs text-muted max-w-xs break-words">
+                          {source.detail}
+                          {source.fetchedAt
+                            ? ` · Imported ${new Date(source.fetchedAt).toLocaleDateString()}`
+                            : ''}
+                        </p>
+                        {source.status === 'failed' ? (
+                          <p className="mt-1 max-w-xs text-xs leading-relaxed" role="status">
+                            Skipped page: {source.error ?? 'This page could not be read.'}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : null}
                     {source.kind === 'youtube' && source.captionTrackKind === 'ASR' ? (
                       <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
                         YouTube generated these captions automatically. Some words or details may be
@@ -535,11 +554,17 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
                     type="button"
                     className="quiet-button"
                     disabled={activePill.sources.some(
-                      (source) => source.kind !== 'youtube' && source.originalAvailable === false,
+                      (source) =>
+                        source.kind !== 'youtube' &&
+                        source.kind !== 'website' &&
+                        source.originalAvailable === false,
                     )}
                     title={
                       activePill.sources.some(
-                        (source) => source.kind !== 'youtube' && source.originalAvailable === false,
+                        (source) =>
+                          source.kind !== 'youtube' &&
+                          source.kind !== 'website' &&
+                          source.originalAvailable === false,
                       )
                         ? 'The original source was removed, so this Pill cannot be regenerated.'
                         : undefined
@@ -582,7 +607,11 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
       />
-      <CitationDialog citation={citation} onClose={() => setCitation(null)} />
+      <CitationDialog
+        citation={citation}
+        source={activePill.sources.find((source) => source.id === citation?.sourceId)}
+        onClose={() => setCitation(null)}
+      />
       <VisualDialog visual={visual} onClose={() => setVisual(null)} />
       <ReadingSettingsDialog
         open={settingsOpen}
@@ -607,7 +636,8 @@ function StudyShellContent({ initialPillId }: { initialPillId: string }) {
             <AlertDialog.Description className="radix-dialog-description">
               Noteesta will process the sources again and create a new notes version. Your note
               history stays available; practice questions will be replaced. This can take a few
-              minutes.
+              minutes. Website pages use saved text; previously unsuccessful pages are fetched
+              again.
             </AlertDialog.Description>
             <div className="dialog-actions">
               <AlertDialog.Cancel asChild>
@@ -646,6 +676,7 @@ function ProcessingView({ pill }: { pill: StudyPill }) {
           <li key={source.id}>
             <SourceIcon kind={source.kind} size={15} />
             <span>{source.name}</span>
+            {source.status === 'failed' ? <span>Skipped: {source.error}</span> : null}
           </li>
         ))}
       </ul>
@@ -668,6 +699,13 @@ function FailedView({ pill, onRetry }: { pill: StudyPill; onRetry: () => void })
     <section className="failed-view">
       <h1>Generation stopped</h1>
       <p>{pill.error ?? 'A source could not be processed. Your uploads are still available.'}</p>
+      {pill.sources
+        .filter((source) => source.kind === 'website' && source.error)
+        .map((source) => (
+          <p key={source.id}>
+            {source.name}: {source.error}
+          </p>
+        ))}
       <button
         type="button"
         className="primary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold shadow-none"
@@ -689,7 +727,15 @@ function LibrarySkeleton() {
   );
 }
 
-function CitationDialog({ citation, onClose }: { citation: Citation | null; onClose: () => void }) {
+function CitationDialog({
+  citation,
+  source,
+  onClose,
+}: {
+  citation: Citation | null;
+  source?: Source;
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useDialog(ref, Boolean(citation), onClose);
   return (
@@ -717,6 +763,24 @@ function CitationDialog({ citation, onClose }: { citation: Citation | null; onCl
           <div className="dialog-body">
             <span className="source-locator">{citation.locator}</span>
             <blockquote>{citation.excerpt}</blockquote>
+            {source?.websiteUrl ? (
+              <p className="mt-3 break-all">
+                <a
+                  className="text-accent underline"
+                  href={source.websiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open website page
+                </a>
+                {source.fetchedAt ? (
+                  <span className="block mt-2 text-xs text-muted">
+                    Imported {new Date(source.fetchedAt).toLocaleDateString()}. This excerpt uses
+                    the saved page text.
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
             <p className="dialog-help">
               This excerpt is the evidence attached to the generated statement.
             </p>

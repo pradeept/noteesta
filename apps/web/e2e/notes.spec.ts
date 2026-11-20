@@ -2,6 +2,133 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { NoteDocument, NoteVersion, Source } from '../src/lib/types';
 
+test('website citations show saved dates and skipped pages do not disable regeneration', async ({
+  page,
+}) => {
+  await noteWorkspace(page, [
+    {
+      id: 'web-1',
+      name: 'Learning Python loops',
+      kind: 'website',
+      detail: 'example.com · saved page',
+      status: 'ready',
+      originalAvailable: false,
+      websiteUrl: 'https://example.com/loops',
+      fetchedAt: '2026-11-20T00:00:00Z',
+      excerpt: 'A loop repeats instructions.',
+    },
+    {
+      id: 'web-2',
+      name: 'Restricted page',
+      kind: 'website',
+      detail: 'Website page',
+      status: 'failed',
+      originalAvailable: false,
+      websiteUrl: 'https://example.com/blocked',
+      error: 'This page could not be read (HTTP 403).',
+    },
+  ]);
+  await expect(
+    page.getByText('Skipped page: This page could not be read (HTTP 403).'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Regenerate Pill' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Learning Python loops', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Learning Python loops' });
+  await expect(dialog.getByRole('link', { name: 'Open website page' })).toHaveAttribute(
+    'href',
+    'https://example.com/loops',
+  );
+  await expect(dialog.getByText('A loop repeats instructions.')).toBeVisible();
+  await expect(dialog.getByText(/This excerpt uses the saved page text/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+});
+
+for (const mixed of [false, true]) {
+  test(`reviews and creates a ${mixed ? 'mixed-source Pill on mobile' : 'website-only Pill'}`, async ({
+    page,
+  }) => {
+    if (mixed) await page.setViewportSize({ width: 390, height: 844 });
+    await noteWorkspace(page);
+    const website = { url: 'https://example.com/loops', title: 'Learning Python loops' };
+    const linked = { url: 'https://example.com/lists', title: 'Python lists' };
+    const headers = {
+      'Access-Control-Allow-Origin': 'http://127.0.0.1:3100',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Noteesta-Client',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    };
+    let submitted = '';
+    const created = {
+      id: 'website-pill',
+      title: 'Python sources',
+      subject: 'Programming',
+      status: 'queued',
+      progress: 2,
+      stage: 'Waiting for a worker',
+      selectedMaterials: ['notes'],
+      sources: [],
+      generation: { provider: 'ollama', model: 'local' },
+      updatedAt: new Date().toISOString(),
+    };
+    await page.route('**/api/v1/sources/web/discover', (route) =>
+      route.fulfill({
+        json: { ...website, links: [linked], capped: false },
+        headers,
+      }),
+    );
+    await page.route(/\/api\/v1\/pills(?:\/website-pill)?$/, async (route) => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+      if (request.method() === 'POST') {
+        submitted = request.postData() ?? '';
+        return route.fulfill({ json: created, status: 202, headers });
+      }
+      if (request.url().endsWith('/website-pill')) return route.fulfill({ json: created, headers });
+      return route.fallback();
+    });
+    if (mixed) await page.getByRole('button', { name: 'Open library', exact: true }).click();
+    await page.getByRole('button', { name: 'New Study Pill', exact: true }).first().click();
+    const dialog = page.getByRole('dialog', { name: 'What are you learning?' });
+    await dialog.getByLabel('Title', { exact: true }).fill('Python sources');
+    await dialog.getByLabel('Subject', { exact: true }).fill('Programming');
+    if (mixed) {
+      await dialog.locator('#source-files').setInputFiles({
+        name: 'notes.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('Practice Python loops.'),
+      });
+      await dialog.getByLabel('YouTube link', { exact: true }).fill('https://youtu.be/83iyz_5rN8c');
+    }
+    await dialog.getByLabel('Website links', { exact: true }).fill(website.url);
+    await expect(dialog.getByRole('button', { name: 'Create Study Pill' })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Review website pages' }).click();
+    await expect(dialog.getByRole('checkbox', { name: /Learning Python loops/ })).toBeChecked();
+    await expect(dialog.getByRole('checkbox', { name: /Python lists/ })).not.toBeChecked();
+    await dialog.getByRole('checkbox', { name: /Python lists/ }).check();
+    const checkboxSize = await dialog.getByRole('checkbox', { name: /Python lists/ }).boundingBox();
+    expect(checkboxSize!.width).toBeLessThanOrEqual(20);
+    expect(checkboxSize!.height).toBeLessThanOrEqual(20);
+    await expect(dialog.getByText('Python lists', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('website-page-picker.png') });
+    await dialog.getByLabel('Search pages', { exact: true }).fill('lists');
+    await expect(dialog.getByText('2 pages selected', { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add selected pages' }).click();
+    await expect(
+      dialog.getByRole('list', { name: 'Selected website pages' }).getByRole('listitem'),
+    ).toHaveCount(2);
+    const overflow = await dialog.evaluate((element) => element.scrollWidth > element.clientWidth);
+    expect(overflow).toBe(false);
+    await dialog.getByRole('button', { name: 'Create Study Pill' }).click();
+    await expect.poll(() => submitted).toContain('name="website_urls"');
+    expect(submitted).toContain(JSON.stringify([website.url, linked.url]));
+    if (mixed) {
+      expect(submitted).toContain('filename="notes.txt"');
+      expect(submitted).toContain('https://youtu.be/83iyz_5rN8c');
+    }
+    await expect(dialog).not.toBeVisible();
+  });
+}
+
 async function noteWorkspace(page: Page, extraSources: Source[] = []) {
   const citation = {
     sourceId: 'source-1',

@@ -31,6 +31,8 @@ def sources_for_storage(sources: list[Source]) -> list[dict[str, Any]]:
         payload = source.model_dump(mode="json", by_alias=False)
         payload["object_key"] = source.object_key
         payload["url"] = source.url
+        payload["snapshot_key"] = source.snapshot_key
+        payload.pop("website_url", None)
         payloads.append(payload)
     return payloads
 

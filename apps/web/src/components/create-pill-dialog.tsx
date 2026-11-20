@@ -10,7 +10,8 @@ import {
   SparkleIcon,
 } from '@phosphor-icons/react';
 import { motion, useReducedMotion } from 'motion/react';
-import type { CreatePillInput, MaterialKey } from '@/lib/types';
+import type { CreatePillInput, MaterialKey, WebsitePage } from '@/lib/types';
+import { WebsiteSourcePicker } from '@/components/website-source-picker';
 
 const youtubeHosts = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);
 
@@ -48,6 +49,8 @@ export function CreatePillDialog({
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [websitePages, setWebsitePages] = useState<WebsitePage[]>([]);
+  const [webPending, setWebPending] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [materials, setMaterials] = useState<MaterialKey[]>(['notes', 'flashcards']);
   const [detailLevel, setDetailLevel] = useState<CreatePillInput['detailLevel']>('balanced');
@@ -94,8 +97,12 @@ export function CreatePillDialog({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isShortsLink) return;
-    if (!files.length && !youtubeUrl.trim()) {
-      setError('Add at least one file or a YouTube link.');
+    if (webPending) {
+      setError('Review your website links or cancel the review before creating the Pill.');
+      return;
+    }
+    if (!files.length && !youtubeUrl.trim() && !websitePages.length) {
+      setError('Add at least one file, YouTube link, or website page.');
       return;
     }
 
@@ -106,6 +113,7 @@ export function CreatePillDialog({
         title: title.trim(),
         subject: subject.trim(),
         youtubeUrl: youtubeUrl.trim() || undefined,
+        websiteUrls: websitePages.map((page) => page.url),
         files,
         selectedMaterials: materials,
         detailLevel,
@@ -116,6 +124,7 @@ export function CreatePillDialog({
       setTitle('');
       setSubject('');
       setYoutubeUrl('');
+      setWebsitePages([]);
       setFiles([]);
       onClose();
     } catch (cause) {
@@ -251,7 +260,7 @@ export function CreatePillDialog({
                 </span>
               </h3>
               <p className="section-help [margin:-7px_0_18px] text-muted text-[13px] leading-[1.65]">
-                Combine files and a YouTube lesson in the same Study Pill.
+                Combine files, a YouTube lesson, and website pages in the same Study Pill.
               </p>
               <div className="source-inputs bg-transparent p-0">
                 <label
@@ -345,6 +354,11 @@ export function CreatePillDialog({
                     only on screen.
                   </p>
                 )}
+                <WebsiteSourcePicker
+                  pages={websitePages}
+                  onChange={setWebsitePages}
+                  onPendingChange={setWebPending}
+                />
               </div>
             </section>
             <section className="form-section min-w-0 [&_+_.form-section]:[border-top:1px_solid_var(--line)] [&_+_.form-section]:pt-[26px] [&_h3]:[margin:0_0_16px] [&_h3]:text-[16px] [&_h3]:tracking-[-0.015em] [&_h3]:font-[650]">
@@ -431,13 +445,17 @@ export function CreatePillDialog({
           <p>
             {files.length
               ? `${files.length} ${files.length === 1 ? 'file' : 'files'} selected`
-              : 'Add a file or a YouTube link to begin.'}
+              : websitePages.length
+                ? 'Website sources ready.'
+                : 'Add a file or link to begin.'}
             {youtubeUrl.trim() && !isShortsLink ? ' • YouTube lesson added' : ''}
+            {websitePages.length ? ` • ${websitePages.length} website pages` : ''}
+            {webPending ? ' • Finish reviewing website links' : ''}
           </p>
           <button
             type="submit"
             className="primary-button min-h-[42px] rounded-[10px] whitespace-nowrap font-semibold shadow-none"
-            disabled={submitting || isShortsLink}
+            disabled={submitting || isShortsLink || webPending}
           >
             <SparkleIcon size={18} weight="duotone" />
             {submitting ? 'Starting...' : 'Create Study Pill'}

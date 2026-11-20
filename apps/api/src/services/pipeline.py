@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -37,6 +38,7 @@ from src.services.orchestration import StudyPillOrchestrator
 from src.services.rag import StudyPillRetriever
 from src.services.rendering import render_visual
 from src.services.three_d import prepare_three_d
+from src.services.web_sources import WebImportError
 from src.storage import get_storage
 
 logger = logging.getLogger(__name__)
@@ -80,11 +82,12 @@ async def process_pill(pill_id: str) -> None:
         retriever = StudyPillRetriever(database)
         analyses: list[dict[str, Any]] = []
         chunk_documents: list[Document] = []
-        source_lookup = {source.id: source for source in pill.sources}
+        source_lookup = {}
         caption_track_kinds = {}
 
         for source_index, source in enumerate(pill.sources):
             source.status = "processing"
+            source.error = None
             source_progress = 8 + int(30 * source_index / len(pill.sources))
             await repository.update(
                 pill_id,
@@ -100,7 +103,21 @@ async def process_pill(pill_id: str) -> None:
                 source.name,
                 source.kind,
             )
-            extracted = await extract_source(source, storage)
+            try:
+                extracted = await extract_source(source, storage)
+                chunks = chunk_segments(extracted.segments)
+                if not chunks:
+                    if source.kind == "website":
+                        raise WebImportError("No readable content was found on this page.")
+                    raise RuntimeError(f"No readable content was found in {source.name}")
+            except WebImportError as error:
+                if source.kind != "website":
+                    raise
+                source.status = "failed"
+                source.error = str(error)
+                source.excerpt = None
+                await repository.update(pill_id, sources=sources_for_storage(pill.sources))
+                continue
             if extracted.caption_track_kind is not None:
                 caption_track_kinds[source.id] = extracted.caption_track_kind
             logger.info(
@@ -111,9 +128,15 @@ async def process_pill(pill_id: str) -> None:
             )
             canonical_key = f"users/{pill.user_id}/pills/{pill.id}/parsed/{source.id}.json"
             await storage.put_bytes(canonical_key, canonical_bytes(extracted), "application/json")
-            chunks = chunk_segments(extracted.segments)
-            if not chunks:
-                raise RuntimeError(f"No readable content was found in {source.name}")
+            if source.kind == "website":
+                source.snapshot_key = canonical_key
+                source.name = extracted.canonical["title"]
+                source.url = extracted.canonical["url"]
+                source.fetched_at = datetime.fromisoformat(extracted.canonical["fetched_at"])
+                source.detail = f"{source.url.split('/')[2]} · saved page"
+                # Persist the snapshot reference before any model call can fail.
+                await repository.update(pill_id, sources=sources_for_storage(pill.sources))
+            source_lookup[source.id] = source
 
             logger.info(
                 "Pill %s: analyzing %d chunk(s) from %s",
@@ -152,6 +175,9 @@ async def process_pill(pill_id: str) -> None:
                     for claim in result.get("claims", []):
                         if claim.get("locator") not in cue_locators:
                             claim["locator"] = chunk.locator
+                elif source.kind == "website":
+                    for claim in result.get("claims", []):
+                        claim["locator"] = chunk.locator
                 result["sourceId"] = source.id
                 result["sourceName"] = source.name
                 result["locator"] = chunk.locator
@@ -184,6 +210,10 @@ async def process_pill(pill_id: str) -> None:
                 progress=progress,
             )
 
+        if not chunk_documents:
+            raise RuntimeError(
+                "None of the selected sources contained readable content. Check the page errors."
+            )
         await repository.update(pill_id, stage="Indexing source sections for search", progress=42)
         logger.info("Pill %s: indexing %d section(s) for retrieval", pill_id, len(chunk_documents))
         await retriever.index(pill_id=pill.id, user_id=pill.user_id, documents=chunk_documents)

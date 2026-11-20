@@ -1,7 +1,8 @@
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -43,7 +44,7 @@ class Citation(ApiModel):
 class Source(ApiModel):
     id: str
     name: str
-    kind: Literal["audio", "video", "pdf", "document", "image", "youtube"]
+    kind: Literal["audio", "video", "pdf", "document", "image", "youtube", "website"]
     detail: str
     status: Literal["uploaded", "processing", "ready", "failed"] = "uploaded"
     excerpt: str | None = None
@@ -51,13 +52,21 @@ class Source(ApiModel):
     object_key: str | None = Field(default=None, exclude=True)
     url: str | None = Field(default=None, exclude=True)
     original_available: bool = True
+    fetched_at: datetime | None = None
+    error: str | None = None
+    snapshot_key: str | None = Field(default=None, exclude=True)
+
+    @computed_field
+    @property
+    def website_url(self) -> str | None:
+        return self.url if self.kind == "website" else None
 
     @model_validator(mode="before")
     @classmethod
-    def youtube_source_has_no_stored_file(cls, values: Any) -> Any:
+    def link_source_has_no_stored_file(cls, values: Any) -> Any:
         if (
             isinstance(values, dict)
-            and values.get("kind") == "youtube"
+            and values.get("kind") in {"youtube", "website"}
             and "original_available" not in values
         ):
             return {**values, "original_available": False}

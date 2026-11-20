@@ -4,6 +4,7 @@
 
 ### Added
 
+- Public website sources with linked-page selection, saved text for regeneration, website citation links, and visible skipped-page reasons.
 - Add YouTube videos to Study Pills by pasting a video link.
 - Product-focused social preview images and structured data for search engines.
 - A music-only product film showing the interactive Study Pill sample.

@@ -5,6 +5,7 @@ import {
   FilePdfIcon,
   FileVideoIcon,
   YoutubeLogoIcon,
+  GlobeIcon,
 } from '@phosphor-icons/react';
 import type { SourceKind } from '@/lib/types';
 
@@ -15,6 +16,7 @@ const icons = {
   document: FileDocIcon,
   image: FileImageIcon,
   youtube: YoutubeLogoIcon,
+  website: GlobeIcon,
 };
 
 export function SourceIcon({ kind, size = 18 }: { kind: SourceKind; size?: number }) {

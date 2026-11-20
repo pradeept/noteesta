@@ -111,7 +111,11 @@ async def build_export(pill: StudyPill, storage: ObjectStorage, notes: dict | No
 
     markdown.extend(["## Source references", ""])
     for index, source in enumerate(pill.sources):
-        markdown.append(f"{index + 1}. {source.name} ({source.detail})")
+        label = source.name.replace("[", "\\[").replace("]", "\\]")
+        if source.website_url:
+            label = f"[{label}](<{source.website_url}>)"
+        suffix = f" — skipped: {source.error}" if source.kind == "website" and source.error else ""
+        markdown.append(f"{index + 1}. {label} ({source.detail}){suffix}")
 
     buffer = BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:

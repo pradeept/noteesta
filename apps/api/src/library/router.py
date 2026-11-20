@@ -29,7 +29,10 @@ async def list_library_sources(
                 kind=source.kind,
                 detail=source.detail,
                 original_available=source.original_available,
-                youtube_url=source.url,
+                youtube_url=source.url if source.kind == "youtube" else None,
+                website_url=source.website_url,
+                fetched_at=source.fetched_at,
+                error=source.error,
                 pills=[LibraryPillReference(id=pill.id, title=pill.title)],
             )
             entries.append(entry)
@@ -43,8 +46,8 @@ async def download_library_source(
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
 ) -> RedirectResponse:
     _, source = await _get_source(database, user_id, source_id)
-    if source.kind == "youtube":
-        raise HTTPException(status_code=409, detail="YouTube sources are links, not stored files.")
+    if source.kind in {"youtube", "website"}:
+        raise HTTPException(status_code=409, detail="Link sources are not stored original files.")
     if not source.original_available or not source.object_key:
         raise HTTPException(status_code=410, detail="The original file has been deleted.")
     return RedirectResponse(await get_storage().presigned_url(source.object_key))
@@ -57,8 +60,8 @@ async def delete_library_source(
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
 ) -> LibraryEntry:
     pill, source = await _get_source(database, user_id, source_id)
-    if source.kind == "youtube":
-        raise HTTPException(status_code=409, detail="YouTube links cannot be deleted as files.")
+    if source.kind in {"youtube", "website"}:
+        raise HTTPException(status_code=409, detail="Link sources cannot be deleted as files.")
     if not source.original_available or not source.object_key:
         raise HTTPException(status_code=410, detail="The original file has already been deleted.")
 
@@ -88,8 +91,8 @@ async def library_download_url(
     database: Annotated[AsyncDatabase, Depends(database_dependency)],
 ) -> dict:
     _, source = await _get_source(database, user_id, source_id)
-    if source.kind == "youtube":
-        raise HTTPException(409, detail="YouTube sources are links, not stored files.")
+    if source.kind in {"youtube", "website"}:
+        raise HTTPException(409, detail="Link sources are not stored original files.")
     if not source.original_available or not source.object_key:
         raise HTTPException(410, detail="The original file has been deleted.")
     return {

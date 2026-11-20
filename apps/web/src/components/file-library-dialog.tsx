@@ -65,7 +65,8 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
               {loading ? <p className="library-empty">Loading your sources…</p> : null}
               {!loading && !error && !query.error && entries.length === 0 ? (
                 <p className="library-empty">
-                  Files and YouTube links will appear here when you add them to a Study Pill.
+                  Files, YouTube links, and website pages will appear here when you add them to a
+                  Study Pill.
                 </p>
               ) : null}
               {entries.map((entry) => (
@@ -76,6 +77,12 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                   <div className="file-library-details">
                     <strong>{entry.name}</strong>
                     <small>{entry.detail}</small>
+                    {entry.fetchedAt ? (
+                      <small>Imported {new Date(entry.fetchedAt).toLocaleDateString()}</small>
+                    ) : null}
+                    {entry.error ? (
+                      <small className="text-danger">Skipped: {entry.error}</small>
+                    ) : null}
                     <div className="file-pill-links">
                       {entry.pills.map((pill) => (
                         <span key={pill.id}>{pill.title}</span>
@@ -83,17 +90,20 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                     </div>
                   </div>
                   <div className="file-library-actions">
-                    {entry.kind === 'youtube' && entry.youtubeUrl ? (
+                    {(entry.kind === 'youtube' && entry.youtubeUrl) ||
+                    (entry.kind === 'website' && entry.websiteUrl) ? (
                       <a
-                        href={entry.youtubeUrl}
+                        href={entry.websiteUrl ?? entry.youtubeUrl ?? undefined}
                         target="_blank"
                         rel="noreferrer"
                         className="icon-button"
-                        aria-label={`Open ${entry.name} on YouTube`}
+                        aria-label={`Open ${entry.name}${entry.kind === 'youtube' ? ' on YouTube' : ' on website'}`}
                       >
                         <LinkIcon size={17} />
                         <ArrowSquareOutIcon size={12} />
                       </a>
+                    ) : entry.kind === 'website' ? (
+                      <span className="file-unavailable">Website link</span>
                     ) : entry.originalAvailable ? (
                       <button
                         type="button"
@@ -121,7 +131,9 @@ export function FileLibraryDialog({ open, onClose }: { open: boolean; onClose: (
                     ) : (
                       <span className="file-unavailable">Original removed</span>
                     )}
-                    {entry.kind !== 'youtube' && entry.originalAvailable ? (
+                    {entry.kind !== 'youtube' &&
+                    entry.kind !== 'website' &&
+                    entry.originalAvailable ? (
                       <button
                         type="button"
                         className="icon-button danger-icon"
