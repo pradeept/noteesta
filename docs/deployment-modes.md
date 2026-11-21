@@ -4,13 +4,13 @@
 
 ## Local single-user workspace
 
-Copy the API and web `.env.example` files and configure the existing MongoDB/Ollama requirements. Run:
+Copy the API and web `.env.example` files and configure MongoDB and Ollama. Run the following command to pull `pradeept17/noteesta-web:latest` and `pradeept17/noteesta-api:latest` and start Noteesta.
 
 ```sh
-docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --build
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
 ```
 
-Open http://localhost:3000. Compose defaults `NOTEESTA_AUTH_ENABLED=false` and binds published ports to localhost. JWT, email and OAuth settings are unnecessary. Redis still supports generation jobs. MongoDB/vector search requirements are unchanged.
+Open http://localhost:3000. Compose pulls web and API images from Docker Hub and uses the same API image for the worker. It defaults `NOTEESTA_AUTH_ENABLED=false` and binds published ports to localhost. JWT, email and OAuth settings are unnecessary. Redis still supports generation jobs. MongoDB/vector search requirements are unchanged.
 
 All visitors to an auth-disabled instance share the same workspace. The API assigns the reserved `local-workspace` identity; browsers cannot choose it. Ownership filters, file paths, worker jobs and saved provider settings retain that identity across restarts. Provider credentials still require the persistent encryption key on API and worker. Settings remain available without an account menu.
 
@@ -24,6 +24,6 @@ Set `NOTEESTA_AUTH_ENABLED=true`, restart the API and reload browsers. Configure
 
 Run install, lint, typecheck, tests and build from each frontend directory. `Dockerfile.web` builds the product. Move the noteesta.com hosting root to `apps/site` when deploying this change. Public URLs `/` and `/app` stay unchanged there.
 
-The product uses `NEXT_PUBLIC_API_URL` as a build argument: changing the browser API origin still requires rebuilding. A runtime same-origin proxy is deferred pending dedicated upload, cookie and download verification. Set exact CORS origins and HTTPS for account-based public deployments.
+The published product image uses `http://localhost:8000/api/v1`. Source builds accept `NEXT_PUBLIC_API_URL` as a build argument; changing the browser API origin requires building a custom web image and selecting it with a Compose override. The default Compose file pulls images and has no build sections. Set exact CORS origins and HTTPS for account-based public deployments.
 
 The site retains a small copied set of UI types, styling and the 3D viewer/runtime so each app builds independently. No cross-app source imports or backend dependencies are required.

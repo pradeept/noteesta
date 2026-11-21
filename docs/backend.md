@@ -73,7 +73,7 @@ Collection assignment validates ownership. Set `collectionId` to `null` to clear
 
 `GET /api/v1/healthz` checks MongoDB, the bucket, and a Celery inspection ping. It returns `status: "ready"` or `status: "failing"` with a dependency map. Both currently return HTTP 200; inspect the body for readiness. Compose checks this path for an HTTP response. Model and embedding availability are checked by `/models`, separately from health.
 
-The API wheel contains `src/`, `workers/`, `main.py`, and `evals/prompts/`. Docker API and worker services share `Dockerfile.api` and use different startup commands.
+The API wheel contains `src/`, `workers/`, `main.py`, and `evals/prompts/`. Compose API and worker services share the published `noteesta-api` image built from `Dockerfile.api`, and use different startup commands.
 
 ## Verification
 
