@@ -122,6 +122,18 @@ test('personal-key settings work across reloads and mobile layouts', async ({ pa
   await expect(page.getByLabel('Generation model', { exact: true })).toHaveValue(
     'openai:gpt-6-astra',
   );
+  await page.goto('/');
+  const workspaceModel = page.getByRole('combobox', { name: 'Generation model', exact: true });
+  await expect(workspaceModel).toHaveValue('openai:gpt-6-astra');
+  await workspaceModel.selectOption('ollama:qwen3-vl:8b-instruct');
+  await expect(workspaceModel).toBeEnabled();
+  expect(defaultGeneration).toEqual({ provider: 'ollama', model: 'qwen3-vl:8b-instruct' });
+  await page.reload();
+  await expect(workspaceModel).toHaveValue('ollama:qwen3-vl:8b-instruct');
+  await page.goto('/settings');
+  await expect(page.getByLabel('Generation model', { exact: true })).toHaveValue(
+    'ollama:qwen3-vl:8b-instruct',
+  );
   await page.screenshot({ path: '/private/tmp/noteesta-settings-desktop.png', fullPage: true });
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
   expect(storage).not.toContain('e2e-personal-secret');

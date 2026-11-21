@@ -89,7 +89,9 @@ function AccountSettings({ userId }: { userId: string }) {
             <section className="settings-section" aria-labelledby="default-model-title">
               <div className="settings-section-heading">
                 <h2 id="default-model-title">Default model</h2>
-                <p>Used for new Study Pills. You can choose a different model in the workspace.</p>
+                <p>
+                  Used for new Study Pills. Changing the model in the workspace also saves it here.
+                </p>
               </div>
               <label className="settings-default-label" htmlFor="default-generation">
                 <span id="default-generation-label">Generation model</span>

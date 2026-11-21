@@ -12,6 +12,7 @@
 
 ### Changed
 
+- The workspace model selector automatically saves your default model to the database for future sessions.
 - The website and search descriptions now position Noteesta as an open-source alternative to Turbo AI and Google NotebookLM.
 - Link previews use the current product message instead of the original sisters illustration.
 - The landing page now leads with self-hosting, GitHub, and local setup instructions.
