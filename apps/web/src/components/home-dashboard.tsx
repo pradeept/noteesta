@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useSession } from '@/components/app-providers';
 import { UserMenu } from '@/components/user-menu';
 import {
   usePills,
@@ -10,7 +12,10 @@ import {
   useModels,
   useAISettings,
   useWorkspaceMutations,
+  keys,
 } from '@/lib/queries';
+import { updateAISettings } from '@/lib/api';
+import { sessionEpoch } from '@/lib/session';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -29,10 +34,12 @@ import { FileLibraryDialog } from '@/components/file-library-dialog';
 import { ThemePicker } from '@/components/appearance-controls';
 import { SourceIcon } from '@/components/source-icon';
 import { providerLabels, providerOrder, tierLabels } from '@/lib/ai-providers';
-import type { CreatePillInput, StudyPill } from '@/lib/types';
+import type { AISettings, CreatePillInput, StudyPill } from '@/lib/types';
 
 export function HomeDashboard() {
   const router = useRouter();
+  const { user } = useSession();
+  const client = useQueryClient();
   const pillsQuery = usePills();
   const collectionsQuery = useCollections();
   const libraryQuery = useLibrary();
@@ -46,16 +53,17 @@ export function HomeDashboard() {
   const error = pillsQuery.error?.message ?? collectionsQuery.error?.message ?? '';
   const sourceError = libraryQuery.error?.message ?? '';
   const generationOptions = modelsQuery.data ?? [];
-  const generationError = modelsQuery.error?.message ?? settingsQuery.error?.message ?? '';
-  const [selectedGeneration, setGenerationValue] = useState('');
+  const [savingGeneration, setSavingGeneration] = useState(false);
+  const [saveGenerationError, setSaveGenerationError] = useState('');
+  const generationError =
+    saveGenerationError || modelsQuery.error?.message || settingsQuery.error?.message || '';
   const savedGeneration = settingsQuery.data?.defaultGeneration;
   const preferred = generationOptions.find(
     (option) =>
       option.provider === savedGeneration?.provider && option.model === savedGeneration?.model,
   );
   const defaultOption = preferred?.available ? preferred : generationOptions[0];
-  const generationValue =
-    selectedGeneration || (defaultOption ? `${defaultOption.provider}:${defaultOption.model}` : '');
+  const generationValue = defaultOption ? `${defaultOption.provider}:${defaultOption.model}` : '';
   const [createOpen, setCreateOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null);
@@ -65,7 +73,35 @@ export function HomeDashboard() {
       : 'grove',
   );
 
+  async function chooseGeneration(value: string) {
+    const option = generationOptions.find((item) => `${item.provider}:${item.model}` === value);
+    if (!option?.available || !user || savingGeneration) return;
+    const epoch = sessionEpoch();
+    const queryKey = [...keys.root(user.id), 'ai-settings'];
+    setSavingGeneration(true);
+    setSaveGenerationError('');
+    try {
+      const selection = await updateAISettings({ provider: option.provider, model: option.model });
+      if (epoch !== sessionEpoch()) return;
+      // An older settings read must not overwrite the newly saved preference.
+      await client.cancelQueries({ queryKey });
+      if (epoch !== sessionEpoch()) return;
+      client.setQueryData<AISettings>(queryKey, (current) =>
+        current ? { ...current, defaultGeneration: selection } : current,
+      );
+      await client.invalidateQueries({ queryKey });
+    } catch (failure) {
+      if (epoch === sessionEpoch())
+        setSaveGenerationError(
+          `Could not save your model. ${failure instanceof Error ? failure.message : 'Try again.'}`,
+        );
+    } finally {
+      if (epoch === sessionEpoch()) setSavingGeneration(false);
+    }
+  }
+
   async function handleCreate(input: CreatePillInput) {
+    if (savingGeneration) throw new Error('Wait for your model selection to finish saving.');
     const selected = generationOptions.find(
       (option) => `${option.provider}:${option.model}` === generationValue,
     );
@@ -119,7 +155,10 @@ export function HomeDashboard() {
             className="primary-button"
             aria-label="New Study Pill"
             disabled={
-              !chosenGeneration?.available || settingsQuery.isPending || settingsQuery.isError
+              !chosenGeneration?.available ||
+              settingsQuery.isPending ||
+              settingsQuery.isError ||
+              savingGeneration
             }
             onClick={() => setCreateOpen(true)}
           >
@@ -143,14 +182,14 @@ export function HomeDashboard() {
               <select
                 id="home-generation-model"
                 value={generationValue}
-                disabled={!generationOptions.length}
-                onChange={(event) => {
-                  const option = generationOptions.find(
-                    (item) => `${item.provider}:${item.model}` === event.target.value,
-                  );
-                  if (!option) return;
-                  setGenerationValue(event.target.value);
-                }}
+                disabled={
+                  !generationOptions.length ||
+                  settingsQuery.isPending ||
+                  settingsQuery.isError ||
+                  savingGeneration
+                }
+                aria-describedby="home-generation-help"
+                onChange={(event) => void chooseGeneration(event.target.value)}
               >
                 {providerOrder.map((provider) => (
                   <optgroup key={provider} label={providerLabels[provider]}>
@@ -173,8 +212,10 @@ export function HomeDashboard() {
                 ))}
               </select>
             </label>
-            <p role={generationError ? 'alert' : undefined}>
-              {generationError || chosenGeneration?.reason || 'Used for new Study Pills.'}
+            <p id="home-generation-help" role={generationError ? 'alert' : 'status'}>
+              {generationError ||
+                (savingGeneration ? 'Saving your model…' : chosenGeneration?.reason) ||
+                'Automatically saved as your default for new Study Pills.'}
             </p>
             <Link href="/settings">Manage models and API keys</Link>
             {generationOptions.some((option) => !option.available) ? (

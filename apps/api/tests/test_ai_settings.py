@@ -126,18 +126,31 @@ def test_malformed_json_and_invalid_provider_do_not_echo_key(account_api):
 
 
 def test_default_is_account_scoped_and_only_accepts_presets(account_api):
-    client, _, identity, _ = account_api
+    client, db, identity, _ = account_api
     chosen = {"provider": "anthropic", "model": "claude-opus-5-5"}
     assert (
         client.patch("/api/v1/settings/ai", json={"defaultGeneration": chosen}).status_code == 200
     )
     assert client.get("/api/v1/settings/ai").json()["defaultGeneration"] == chosen
+    assert db.ai_settings.documents["alice"]["default_generation"] == chosen
+    # A new client/session restores the database choice without browser state.
+    fresh_client = TestClient(app)
+    assert fresh_client.get("/api/v1/settings/ai").json()["defaultGeneration"] == chosen
     identity["id"] = "bob"
     assert client.get("/api/v1/settings/ai").json()["defaultGeneration"]["provider"] == "ollama"
-    chosen["model"] = "arbitrary-model"
+    other = {"provider": "openai", "model": "gpt-6-astra"}
+    assert client.patch("/api/v1/settings/ai", json={"defaultGeneration": other}).status_code == 200
+    identity["id"] = "alice"
+    assert fresh_client.get("/api/v1/settings/ai").json()["defaultGeneration"] == chosen
     assert (
-        client.patch("/api/v1/settings/ai", json={"defaultGeneration": chosen}).status_code == 422
+        client.patch(
+            "/api/v1/settings/ai",
+            json={"defaultGeneration": {**chosen, "model": "arbitrary-model"}},
+        ).status_code
+        == 422
     )
+    assert db.ai_settings.documents["alice"]["default_generation"] == chosen
+    assert db.ai_settings.documents["bob"]["default_generation"] == other
 
 
 def test_missing_encryption_keeps_ollama_usable(account_api):
