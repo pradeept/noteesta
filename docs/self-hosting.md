@@ -2,6 +2,18 @@
 
 Start with the [Docker Compose](../README.md#docker) or [local development](../README.md#local-setup) instructions in the README. This guide covers infrastructure, provider settings, and operational details.
 
+## Compose images and updates
+
+Compose pulls `pradeept17/noteesta-web:latest` for the frontend and `pradeept17/noteesta-api:latest` for the API and worker. Public pulls require no Docker Hub login.
+
+Run this from the repository root to start or update the stack:
+
+```sh
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
+```
+
+Published web images use `http://localhost:8000/api/v1`, so open the frontend on the same machine as the API. `NEXT_PUBLIC_API_URL` in `apps/web/.env` applies to frontend development and source builds.
+
 ## Atlas Vector Search
 
 Create an Atlas deployment, database user, and network access entry for the API and worker. Put its connection string in `MONGODB_URI` in `apps/api/.env`. Wait for the vector index to be ready before using grounded chat.
@@ -78,7 +90,7 @@ The supplied Compose file is a local development/self-hosting configuration. For
 - For an account-based public deployment set `NOTEESTA_AUTH_ENABLED=true`, `APP_ENV=production`, a stable `JWT_SECRET` of at least 32 characters, and your persistent provider-key encryption key if using BYOK.
 - Configure `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` on a verified sender domain. Production startup requires Resend and an HTTPS `WEB_URL`.
 - Set `WEB_URL` and `CORS_ORIGINS` to the exact frontend origin. Keep frontend and API under the same parent domain and use HTTPS. See [authentication deployment details](authentication.md#google-and-resend).
-- Set `NEXT_PUBLIC_API_URL` to the browser-accessible API origin plus `/api/v1`. This is a frontend build argument; rebuild the image when changing it.
+- Build a custom web image with `NEXT_PUBLIC_API_URL` set to the browser-accessible API origin plus `/api/v1`, then select that image through a Compose override. Published web images use localhost; this build-time URL cannot be changed by setting a container environment variable.
 - For the separate website only, set `NOTEESTA_SITE_URL` before building to your public website origin. Its default is `https://noteesta.com`; it drives canonical metadata, robots, sitemap, and LLM guides. For the public website on Vercel, use `apps/site` as the project’s Root Directory. The product has no marketing SEO configuration.
 - Replace the example storage credentials and configure persistent storage, database backups, and an API ingress appropriate to your deployment. The local Compose API port binds to loopback.
 

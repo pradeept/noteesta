@@ -4,6 +4,7 @@
 
 ### Added
 
+- Public multi-platform Docker Hub images published after PRs merge into main, with commit and latest tags.
 - Public website sources with linked-page selection, saved text for regeneration, website citation links, and visible skipped-page reasons.
 - Add YouTube videos to Study Pills by pasting a video link.
 - Product-focused social preview images and structured data for search engines.
@@ -12,6 +13,7 @@
 
 ### Changed
 
+- Docker Compose pulls the latest frontend and API images from Docker Hub. The worker uses the API image.
 - The workspace model selector automatically saves your default model to the database for future sessions.
 - The website and search descriptions now position Noteesta as an open-source alternative to Turbo AI and Google NotebookLM.
 - Link previews use the current product message instead of the original sisters illustration.

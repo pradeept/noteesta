@@ -68,7 +68,7 @@ For hosted AI provider keys (BYOK), generate an encryption key and paste it into
 openssl rand -base64 32 | tr '/+' '_-'
 ```
 
-In **`apps/web/.env`**, set the browser-facing API URL:
+In **`apps/web/.env`**, keep the default browser-facing API URL for local frontend development:
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
@@ -111,6 +111,8 @@ Complete [Getting started](#getting-started) first. Keep these backend settings 
 OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434
 ```
 
+Compose pulls `pradeept17/noteesta-web:latest` for the frontend and `pradeept17/noteesta-api:latest` for the API and worker.
+
 Ollama must listen on an address reachable from Docker. For a manually started Ollama server, use this in a separate terminal:
 
 ```bash
@@ -119,10 +121,10 @@ OLLAMA_HOST=0.0.0.0:11434 ollama serve
 
 If Ollama already runs as an app or service, configure its bind address and restart that instance instead of starting a second server. See [Ollama’s platform-specific instructions](https://docs.ollama.com/faq#how-do-i-configure-ollama-server). Keep this endpoint reachable only by trusted clients.
 
-Build and start Noteesta:
+Pull the published images and start Noteesta:
 
 ```bash
-docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --build
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
 ```
 
 Open **[localhost:3000](http://localhost:3000)**. Your local workspace opens immediately; account setup is optional.
@@ -137,11 +139,14 @@ docker compose --env-file apps/web/.env --env-file apps/api/.env logs -f api wor
 # Validate configuration without starting services
 docker compose --env-file apps/web/.env --env-file apps/api/.env config --quiet
 
+# Pull updates and recreate services whose image changed
+docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
+
 # Stop the stack, keeping the object-storage volume
 docker compose --env-file apps/web/.env --env-file apps/api/.env down
 ```
 
-Compose configures container-to-container Redis and storage URLs automatically. Do not change those to `localhost`. The first build and first document/transcription job can take longer while dependencies and model weights download.
+Compose configures container-to-container Redis and storage URLs automatically. Do not change those to `localhost`. The first image pull and first document/transcription job can take longer while images and model weights download.
 
 This is a local self-hosting configuration. For a public deployment, follow the [deployment settings](docs/self-hosting.md#public-deployments).
 
@@ -228,13 +233,13 @@ There is no shared root `.env` file. Copy and edit both app templates:
 
 | Template                                                           | Used by                                                              |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| [`apps/web/.env.example`](apps/web/.env.example) → `apps/web/.env` | Product frontend; Compose frontend build arguments |
-| [`apps/api/.env.example`](apps/api/.env.example) → `apps/api/.env` | FastAPI, Celery, storage, generation, and optional evaluations       |
+| [`apps/web/.env.example`](apps/web/.env.example) → `apps/web/.env` | Local frontend development and source-build settings; prebuilt images use localhost |
+| [`apps/api/.env.example`](apps/api/.env.example) → `apps/api/.env` | FastAPI, Celery, storage, generation, and optional evaluations |
 
 | Setting                                  | Purpose                                                                                        |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `NOTEESTA_AUTH_ENABLED` | Backend auth mode. Local example and Compose default to `false`; backend default is `true`. |
-| `NEXT_PUBLIC_API_URL`                    | Browser-facing API URL; `http://localhost:8000/api/v1` locally. Baked into the frontend build. |
+| `NEXT_PUBLIC_API_URL`                    | Browser-facing API URL for frontend development/source builds. Published images use `http://localhost:8000/api/v1`; changing a downloaded container's environment does not change it. |
 | `NOTEESTA_SITE_URL`                      | Website origin for canonical metadata, sitemap, and LLM guides. Set before building.           |
 | `MONGODB_URI`                            | Connection string reachable by both API and worker; Compose does not start MongoDB.            |
 | `JWT_SECRET`                             | Stable authentication secret shared across API processes.                                      |
