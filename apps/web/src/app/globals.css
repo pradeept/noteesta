@@ -3855,6 +3855,9 @@ html[data-theme='dark'] .notes-prose span:is([style*='#b91c1c'], [style*='rgb(18
     color: var(--muted);
     font-size: 12px;
   }
+  .home-generation-control p[role='alert'] {
+    color: var(--danger);
+  }
   .home-generation-availability {
     margin-top: 6px;
     color: var(--muted);

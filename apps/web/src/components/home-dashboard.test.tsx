@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeDashboard } from '@/components/home-dashboard';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as api from '@/lib/api';
-import type { AISettings, GenerationSelection } from '@/lib/types';
+import type { AISettings, GenerationOption, GenerationSelection } from '@/lib/types';
 
 vi.mock('@/components/app-providers', () => ({
   useSession: () => ({
@@ -22,36 +22,39 @@ vi.mock('@/lib/api', () => ({
   listPills: vi.fn().mockResolvedValue([]),
   listCollections: vi.fn().mockResolvedValue([]),
   listLibrary: vi.fn().mockResolvedValue([]),
-  listGenerationOptions: vi.fn().mockResolvedValue([
-    {
-      provider: 'ollama',
-      model: 'qwen3-vl:8b-instruct',
-      label: 'Ollama · Qwen',
-      available: true,
-      reason: null,
-    },
-    {
-      provider: 'ollama',
-      model: 'gemma4:26b',
-      label: 'Ollama · Gemma 4 26B',
-      available: true,
-      reason: null,
-    },
-    {
-      provider: 'anthropic',
-      model: 'claude-sonnet-5-5',
-      label: 'Anthropic · Sonnet 5.5',
-      available: false,
-      reason: 'Add your Anthropic key in Settings.',
-    },
-  ]),
+  listGenerationOptions: vi.fn(),
 }));
+
+const generationOptions: GenerationOption[] = [
+  {
+    provider: 'ollama',
+    model: 'qwen3-vl:8b-instruct',
+    label: 'Ollama · Qwen',
+    available: true,
+    reason: null,
+  },
+  {
+    provider: 'ollama',
+    model: 'gemma4:26b',
+    label: 'Ollama · Gemma 4 26B',
+    available: true,
+    reason: null,
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-sonnet-5-5',
+    label: 'Anthropic · Sonnet 5.5',
+    available: false,
+    reason: 'Add your Anthropic key in Settings.',
+  },
+];
 
 let saved: GenerationSelection;
 const clients: QueryClient[] = [];
 
 beforeEach(() => {
   saved = { provider: 'ollama', model: 'gemma4:26b' };
+  vi.mocked(api.listGenerationOptions).mockResolvedValue(generationOptions);
   vi.mocked(api.getAISettings).mockImplementation(async () => ({
     defaultGeneration: { ...saved },
     providers: [],
@@ -95,6 +98,10 @@ describe('workspace generation model', () => {
   it('saves the choice through the API and restores it with a fresh query cache', async () => {
     const view = mount();
     const picker = await loadedPicker();
+    expect(screen.getByRole('status').textContent).toBe(
+      'Automatically saved as your default for new Study Pills.',
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
     fireEvent.change(picker, { target: { value: 'ollama:qwen3-vl:8b-instruct' } });
     await waitFor(() => expect(picker.value).toBe('ollama:qwen3-vl:8b-instruct'));
     expect(api.updateAISettings).toHaveBeenCalledWith({
@@ -165,5 +172,48 @@ describe('workspace generation model', () => {
     expect(picker.value).toBe('ollama:qwen3-vl:8b-instruct');
     expect(api.updateAISettings).not.toHaveBeenCalled();
     expect(saved.provider).toBe('anthropic');
+  });
+
+  it('alerts below the disabled selector when Ollama is unreachable and a hosted model is saved', async () => {
+    saved = { provider: 'anthropic', model: 'claude-sonnet-5-5' };
+    const reason =
+      'Noteesta can’t reach Ollama. Check that Ollama is running and reachable from the Noteesta API.';
+    vi.mocked(api.listGenerationOptions).mockResolvedValue(
+      generationOptions.map((option) => ({ ...option, available: false, reason })),
+    );
+    mount();
+
+    const picker = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Generation model' });
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(reason);
+    expect(picker.closest('label')?.nextElementSibling).toBe(alert);
+    expect(picker.getAttribute('aria-describedby')).toBe(alert.id);
+    expect(picker.disabled).toBe(true);
+  });
+
+  it('keeps the selector usable and shows pull instructions for a missing model', async () => {
+    const [missing, ...remaining] = generationOptions;
+    const reason = `Run ollama pull ${missing.model} first.`;
+    vi.mocked(api.listGenerationOptions).mockResolvedValue([
+      { ...missing, available: false, reason },
+      ...remaining,
+    ]);
+    mount();
+
+    const picker = await loadedPicker();
+    await waitFor(() => expect(picker.disabled).toBe(false));
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByText('Unavailable models'));
+    expect(screen.getByText(`: ${reason}`)).toBeTruthy();
+    expect(screen.getByRole<HTMLOptionElement>('option', { name: /Ollama · Qwen/ }).disabled).toBe(
+      true,
+    );
+  });
+
+  it('shows the API error when model availability cannot be loaded', async () => {
+    vi.mocked(api.listGenerationOptions).mockRejectedValueOnce(new Error('API unavailable.'));
+    mount();
+
+    expect((await screen.findByRole('alert')).textContent).toBe('API unavailable.');
   });
 });

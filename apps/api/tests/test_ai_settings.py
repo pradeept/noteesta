@@ -203,7 +203,7 @@ async def test_embedding_and_fallback_availability_are_separate(account_api, mon
     with pytest.raises(generation.GenerationError, match="ollama pull"):
         await generation.resolve_generation(db, "alice", chosen)
     monkeypatch.setattr(generation, "_installed_models", AsyncMock(return_value=None))
-    with pytest.raises(generation.GenerationError, match="source search"):
+    with pytest.raises(generation.GenerationError, match="Noteesta can’t reach Ollama"):
         await generation.resolve_generation(db, "alice", chosen)
 
 
