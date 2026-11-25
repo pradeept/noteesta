@@ -4,11 +4,7 @@
 
 ## Local single-user workspace
 
-Copy the API and web `.env.example` files and configure MongoDB and Ollama. Run the following command to pull `pradeept17/noteesta-web:latest` and `pradeept17/noteesta-api:latest` and start Noteesta.
-
-```sh
-docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
-```
+Copy the API and web `.env.example` files and configure MongoDB. Choose a [Docker setup](../README.md#docker) to start Noteesta with either host Ollama (`compose.yaml`) or containerized Ollama (`compose.ollama.yaml`).
 
 Open http://localhost:3000. Compose pulls web and API images from Docker Hub and uses the same API image for the worker. It defaults `NOTEESTA_AUTH_ENABLED=false` and binds published ports to localhost. JWT, email and OAuth settings are unnecessary. Redis still supports generation jobs. MongoDB/vector search requirements are unchanged.
 

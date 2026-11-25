@@ -57,6 +57,10 @@ export function HomeDashboard() {
   const [saveGenerationError, setSaveGenerationError] = useState('');
   const generationError =
     saveGenerationError || modelsQuery.error?.message || settingsQuery.error?.message || '';
+  const ollamaConnectionError = generationOptions.find(
+    (option) => !option.available && option.reason?.startsWith('Noteesta can’t reach Ollama.'),
+  )?.reason;
+  const generationAlert = [ollamaConnectionError, generationError].filter(Boolean).join(' ');
   const savedGeneration = settingsQuery.data?.defaultGeneration;
   const preferred = generationOptions.find(
     (option) =>
@@ -184,6 +188,7 @@ export function HomeDashboard() {
                 value={generationValue}
                 disabled={
                   !generationOptions.length ||
+                  Boolean(ollamaConnectionError) ||
                   settingsQuery.isPending ||
                   settingsQuery.isError ||
                   savingGeneration
@@ -212,8 +217,8 @@ export function HomeDashboard() {
                 ))}
               </select>
             </label>
-            <p id="home-generation-help" role={generationError ? 'alert' : 'status'}>
-              {generationError ||
+            <p id="home-generation-help" role={generationAlert ? 'alert' : 'status'}>
+              {generationAlert ||
                 (savingGeneration ? 'Saving your model…' : chosenGeneration?.reason) ||
                 'Automatically saved as your default for new Study Pills.'}
             </p>

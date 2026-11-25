@@ -40,6 +40,34 @@ def test_catalog_rejects_unlisted_model_and_closes_structured_schemas() -> None:
 
 
 @pytest.mark.asyncio
+async def test_catalog_reports_unreachable_ollama_for_all_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(_env_file=None)
+    monkeypatch.setattr(generation, "get_settings", lambda: settings)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/tags"
+        raise httpx.ConnectError("Connection refused", request=request)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        generation.httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+
+    options = await generation.available_options({"openai", "anthropic"})
+
+    assert {option.provider for option in options} >= {"ollama", "openai", "anthropic"}
+    assert all(not option.available for option in options)
+    assert {option.reason for option in options} == {
+        "Noteesta can’t reach Ollama. Check that Ollama is running and reachable "
+        "from the Noteesta API."
+    }
+
+
+@pytest.mark.asyncio
 async def test_catalog_requires_embeddings_even_with_external_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

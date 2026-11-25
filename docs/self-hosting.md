@@ -6,11 +6,7 @@ Start with the [Docker Compose](../README.md#docker) or [local development](../R
 
 Compose pulls `pradeept17/noteesta-web:latest` for the frontend and `pradeept17/noteesta-api:latest` for the API and worker. Public pulls require no Docker Hub login.
 
-Run this from the repository root to start or update the stack:
-
-```sh
-docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
-```
+Follow the [Docker setup](../README.md#docker) for the Compose file you use. Run its start command again to pull updates and recreate services whose images changed.
 
 Published web images use `http://localhost:8000/api/v1`, so open the frontend on the same machine as the API. `NEXT_PUBLIC_API_URL` in `apps/web/.env` applies to frontend development and source builds.
 
@@ -41,27 +37,43 @@ For Atlas, create the `noteesta` database and `chunks` collection, then add a Ve
 
 Ollama provides source embeddings for **every** generation provider. Local generation or missing-key fallback also needs the configured `OLLAMA_MODEL` installed.
 
-| Where API and worker run | Setting                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| On your host             | `OLLAMA_BASE_URL=http://127.0.0.1:11434`                   |
-| In Compose               | `OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434` |
-
-Compose maps `host.docker.internal` to the host gateway and uses the Docker setting to override the containers’ `OLLAMA_BASE_URL`. Ensure Ollama listens on an address reachable from that gateway. For a manually started server:
-
-```bash
-OLLAMA_HOST=0.0.0.0:11434 ollama serve
-```
-
-For an existing macOS app, Linux service, or Windows installation, set the environment variable using [Ollama’s configuration instructions](https://docs.ollama.com/faq#how-do-i-configure-ollama-server) and restart that instance. Restrict access to trusted clients.
-
-Check host connectivity and installed tags with:
-
-```bash
-curl http://localhost:11434/api/tags
-ollama list
-```
+| Setup | Ollama endpoint |
+| ----- | --------------- |
+| Local development | `OLLAMA_BASE_URL=http://127.0.0.1:11434` |
+| `compose.yaml` with host Ollama | `OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434` |
+| `compose.ollama.yaml` with containerized Ollama | `http://ollama:11434` on the Compose network |
 
 Use the exact installed generation tag in `OLLAMA_MODEL`. `OLLAMA_NUM_CTX` configures the local model context; `OLLAMA_TIMEOUT_SECONDS` controls the request timeout. Model availability is also exposed by authenticated `GET /api/v1/models`.
+
+### Ollama in Compose
+
+[`compose.ollama.yaml`](../compose.ollama.yaml) defines the full Noteesta stack with the official Ollama image. Use [the containerized Ollama setup](../README.md#run-ollama-with-noteesta-in-docker) to start the stack and download models into the persistent `ollama-data` volume. This setup uses CPU by default. See the [Ollama Docker guide](https://docs.ollama.com/docker) for GPU setup.
+
+### Debug host Ollama on Linux
+
+For `compose.yaml` with Ollama running on the host, check its listen address with `ss -ltn 'sport = :11434'`. A listener on `127.0.0.1:11434` only accepts connections from the host. Docker needs a listener on an address it can reach.
+
+If Ollama runs as a systemd service and listens only on loopback, run `sudo systemctl edit ollama.service`. Add the following in the editable area above the line that says subsequent lines will be discarded. Restrict access to port 11434 to trusted clients when listening on all interfaces. See the [Ollama configuration guide](https://docs.ollama.com/faq#setting-environment-variables-on-linux) and the [systemctl manual](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html#edit%20UNIT%E2%80%A6).
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+After saving, run `systemctl cat ollama.service` and confirm the `OLLAMA_HOST` setting appears in the saved `override.conf`. Run `sudo systemctl daemon-reload` and `sudo systemctl restart ollama.service`, then check the listen address again.
+
+From the repository root, test the endpoint configured inside the API container. HTTP 200 confirms the API container can reach Ollama.
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env exec -T api python - <<'PY'
+import os
+from urllib.request import ProxyHandler, build_opener
+
+url = os.environ["OLLAMA_BASE_URL"].rstrip("/") + "/api/tags"
+with build_opener(ProxyHandler({})).open(url, timeout=3) as response:
+    print(response.status)
+PY
+```
 
 ## Provider keys and model selection
 

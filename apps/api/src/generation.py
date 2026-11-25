@@ -99,7 +99,10 @@ def _option_for(
     settings = get_settings()
     reason = None
     if installed is None:
-        reason = "Ollama is required for source search and is unavailable."
+        reason = (
+            "Noteesta can’t reach Ollama. Check that Ollama is running and reachable "
+            "from the Noteesta API."
+        )
     elif not _installed(settings.ollama_embedding_model, installed):
         reason = f"Run ollama pull {settings.ollama_embedding_model} for source search."
     label, tier = choice.model, "local"

@@ -41,7 +41,7 @@ Choose [Docker Compose](#docker) to run the application in containers, or [local
 
 - **Docker with Compose** for the full stack or just Redis and object storage.
 - **MongoDB Atlas** with a database user, network access configured for your API and worker, and an [Atlas Vector Search index](docs/self-hosting.md#atlas-vector-search). MongoDB is not included in Compose. A plain local MongoDB instance does not provide the vector-search setup used by grounded chat.
-- **[Ollama](https://ollama.com/download)** for embeddings with every generation provider. Local generation also needs the configured generation model.
+- **Ollama** for embeddings with every generation provider. Use a [host installation](https://ollama.com/download) or run Ollama with Noteesta in [Docker](#docker). Local generation also needs the configured generation model.
 - **Git and OpenSSL** for cloning and generating configuration secrets.
 - For local development: **Node.js 24**, **pnpm 11.8.0**, **Python 3.11+**, and **[uv](https://docs.astral.sh/uv/getting-started/installation/)**. The Docker images use Node.js 24 and Python 3.12; host Node.js, pnpm, Python, and uv are not needed for the Compose path.
 
@@ -87,49 +87,54 @@ EMAIL_ADAPTER=local
 
 Use your Atlas connection string and URL-encode special characters in its username/password. Keep the encryption key stable; losing it makes existing saved provider keys unreadable. See [environment settings](#environment) and the [self-hosting guide](docs/self-hosting.md) for details.
 
-### 3. Prepare Ollama and MongoDB
-
-With Ollama running, pull the embedding model and, if using local generation, the default generation model:
-
-```bash
-ollama pull nomic-embed-text
-ollama pull qwen3-vl:8b-instruct
-ollama list
-```
-
-Set `OLLAMA_MODEL` in `apps/api/.env` to the exact installed generation-model tag. If you intend to use only BYOK, you can skip the local generation-model download; add a provider key and choose its model in Settings before creating your first Pill. **Ollama embeddings are still required.**
+### 3. Set up MongoDB Atlas
 
 Create the [Atlas Vector Search index](docs/self-hosting.md#atlas-vector-search) on `noteesta.chunks` and wait for it to be ready before using grounded chat.
 
 ## Docker
 
-**Runs:** frontend, API, Celery worker, Redis, and SeaweedFS object storage. **Connects separately to:** your MongoDB deployment and host Ollama.
+Complete [Getting started](#getting-started), then choose one of the two setups below. Both use the published Noteesta images and connect to your MongoDB deployment. Set `OLLAMA_MODEL` in `apps/api/.env` to the exact tag you pull for local generation. For hosted generation, add a provider key in Settings and pull only the embedding model.
 
-Complete [Getting started](#getting-started) first. Keep these backend settings for host Ollama:
+### Use Ollama running on your host
 
-```dotenv
-OLLAMA_DOCKER_BASE_URL=http://host.docker.internal:11434
-```
-
-Compose pulls `pradeept17/noteesta-web:latest` for the frontend and `pradeept17/noteesta-api:latest` for the API and worker.
-
-Ollama must listen on an address reachable from Docker. For a manually started Ollama server, use this in a separate terminal:
+Use the default `compose.yaml`. Start Ollama on your host and pull the models there.
 
 ```bash
-OLLAMA_HOST=0.0.0.0:11434 ollama serve
+ollama pull nomic-embed-text
+ollama pull qwen3-vl:8b-instruct # For local generation
 ```
 
-If Ollama already runs as an app or service, configure its bind address and restart that instance instead of starting a second server. See [Ollama’s platform-specific instructions](https://docs.ollama.com/faq#how-do-i-configure-ollama-server). Keep this endpoint reachable only by trusted clients.
-
-Pull the published images and start Noteesta:
+Then start Noteesta.
 
 ```bash
 docker compose --env-file apps/web/.env --env-file apps/api/.env up -d --pull always
 ```
 
+### Run Ollama with Noteesta in Docker
+
+Use `compose.ollama.yaml` to start the full Noteesta stack and its Ollama container.
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env \
+  -f compose.ollama.yaml up -d --pull always
+```
+
+On first run, download the models into the container. They persist in its Docker volume.
+
+```bash
+docker compose --env-file apps/web/.env --env-file apps/api/.env \
+  -f compose.ollama.yaml exec ollama ollama pull nomic-embed-text
+
+# For local generation
+docker compose --env-file apps/web/.env --env-file apps/api/.env \
+  -f compose.ollama.yaml exec ollama ollama pull qwen3-vl:8b-instruct
+```
+
+### Open and manage Noteesta
+
 Open **[localhost:3000](http://localhost:3000)**. Your local workspace opens immediately; account setup is optional.
 
-Useful commands, from the repository root:
+Run these commands from the repository root. For the setup with containerized Ollama, add `-f compose.ollama.yaml` before `ps`, `logs`, `config`, `up`, or `down`. Run `down` with the selected file before switching setups.
 
 ```bash
 # Check services and follow application logs
@@ -152,7 +157,7 @@ This is a local self-hosting configuration. For a public deployment, follow the 
 
 ## Local setup (development)
 
-Complete [Getting started](#getting-started), then install dependencies. Use **pnpm** for the frontend and **uv** for Python.
+Complete [Getting started](#getting-started) and [pull the models into host Ollama](#use-ollama-running-on-your-host). Install dependencies with **pnpm** for the frontend and **uv** for Python.
 
 ```bash
 cd apps/web
@@ -335,7 +340,8 @@ The [original hackathon plan](docs/plan.md) and [HTML prototypes](docs/prototype
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Workspace is unavailable | Check API connectivity and `/api/v1/config`; the product workspace is always enabled. |
 | MongoDB fails in Docker   | Container `localhost` is not your host. Use a reachable Atlas connection string and allow the API/worker’s outbound address in Atlas.        |
-| Ollama connection refused | Check the installed models, bind address, and `OLLAMA_DOCKER_BASE_URL`; see [Ollama connectivity](docs/self-hosting.md#ollama-connectivity). |
+| Models unavailable        | Expand **Unavailable models** below the picker and check the model tags in the Ollama instance used by your [setup](docs/self-hosting.md#ollama-connectivity). |
+| Noteesta can’t reach Ollama | [Debug host Ollama on Linux](docs/self-hosting.md#debug-host-ollama-on-linux). |
 | Pill stays queued         | Confirm the Celery worker is running and can reach Redis, MongoDB, storage, and Ollama.                                                      |
 | No verification email     | The default `local` adapter writes JSON previews. Check the host folder or API container described [above](#create-an-account).              |
 | Chat cannot find sources  | Check the Atlas vector index name, readiness, 768 dimensions, and both filter fields.                                                        |
